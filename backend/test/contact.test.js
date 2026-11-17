@@ -65,6 +65,34 @@ describe('contact form', () => {
       assert.doesNotMatch(html, /<script/);
     });
 
+    it('escapes HTML in the name and company in the email body', async () => {
+      const res = await submit({ name: '<img src=x onerror=alert(1)> Ada', company: '<b onmouseover=alert(2)>Engines</b>' });
+      assert.equal(res.status, 202);
+      const { html } = mailer.sent[0];
+      assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt; Ada/);
+      assert.match(html, /&lt;b onmouseover=alert\(2\)&gt;Engines&lt;\/b&gt;/);
+      assert.doesNotMatch(html, /<img src=x/);
+      assert.doesNotMatch(html, /<b onmouseover/);
+    });
+
+    it('escapes quotes so a field cannot break out of an attribute', async () => {
+      const res = await submit({ name: '"><script>alert(1)</script>' });
+      assert.equal(res.status, 202);
+      const { html } = mailer.sent[0];
+      assert.match(html, /&quot;&gt;&lt;script&gt;/);
+      assert.doesNotMatch(html, /<script/);
+    });
+
+    it('keeps the subject and text free of markup interpretation and line breaks', async () => {
+      const res = await submit({ name: '<script>alert(1)</script>\r\nBcc: x@example.com', company: 'Acme\nInc' });
+      assert.equal(res.status, 202);
+      const { subject, text } = mailer.sent[0];
+      assert.doesNotMatch(subject, /[\r\n]/);
+      assert.equal(subject, 'New message from <script>alert(1)</script> Bcc: x@example.com');
+      assert.match(text, /^Name: <script>alert\(1\)<\/script> Bcc: x@example\.com$/m);
+      assert.match(text, /^Company: Acme Inc$/m);
+    });
+
     it('accepts a missing company', async () => {
       const body = contactBody({}, now);
       delete body.company;
@@ -173,6 +201,7 @@ describe('contact form', () => {
     it('caps the name at 120 characters', () => rejects({ name: 'a'.repeat(121) }, 'Name must be at most 120 characters'));
     it('rejects a malformed email', () => rejects({ email: 'not-an-email' }, 'Enter a valid email address'));
     it('rejects an email with a line break', () => rejects({ email: 'a@example.com\nbcc: x@example.com' }, 'Enter a valid email address'));
+    it('rejects an email containing a script tag', () => rejects({ email: '<script>alert(1)</script>@example.com' }, 'Enter a valid email address'));
     it('caps the email at 254 characters', () => rejects({ email: `${'a'.repeat(250)}@example.com` }, 'Email must be at most 254 characters'));
     it('caps the company at 120 characters', () => rejects({ company: 'a'.repeat(121) }, 'Company must be at most 120 characters'));
     it('rejects a message under 10 characters', () => rejects({ message: 'too short' }, 'Message must be between 10 and 5000 characters'));
