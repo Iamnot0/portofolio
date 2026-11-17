@@ -16,6 +16,7 @@ Tests run in-process against PGlite and need no database or network:
 
 ```bash
 npm test --prefix backend
+npm test --prefix frontend
 npm test --prefix development
 ```
 

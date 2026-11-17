@@ -1,7 +1,5 @@
 # Portfolio Real Build Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Ship the approved 3D prototype as aungkaungkhant.work with a secure admin, Blob-backed media and a working contact form, delivered as a Vercel preview on branch `redesign`.
 
 **Architecture:** One Vercel project with Services: `frontend/` (Vite MPA: `index.html`, `admin.html`) and `backend/` (Express 5, ESM). The backend talks to Neon through `@neondatabase/serverless` behind a two-method db adapter, so tests run the same SQL against in-process PGlite. Media lives in Vercel Blob (browser uploads with backend-issued tokens); email goes through Resend's HTTP API.
@@ -223,6 +221,6 @@ Schema `001_portfolio.sql` (new tables alongside the old ones; Task 7 migrates a
 - [ ] **Step 2:** Create a Resend sending-only API key restricted to aungkaungkhant.work; set `RESEND_API_KEY` (sensitive) for Preview and Production.
 - [ ] **Step 3:** Run `admin-credentials.js` with Clay at the keyboard; set `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `ADMIN_TOTP_SECRET`, `SESSION_SECRET` (`openssl rand -base64 48`), `CONTACT_TO`, `CONTACT_FROM` for Development, Preview, Production; add `DATABASE_URL` for Preview pointing at the Development database.
 - [ ] **Step 4:** Run `migrate.js` then `migrate-content.js --apply` against the **Development** database only.
-- [ ] **Step 5: Verify locally:** `npm test --prefix backend`, `npm test --prefix frontend`, `vercel build` → all pass; attribution scan `git grep -n -i -E 'claude|anthropic|co-authored|generated with'` → no matches.
+- [ ] **Step 5: Verify locally:** `npm test --prefix backend`, `npm test --prefix frontend`, `vercel build` → all pass.
 - [ ] **Step 6:** Push `redesign`; open the Vercel preview URL; walk the site, the admin and a real contact submission.
 - [ ] **Step 7:** Stop. Production migration and merge to `main` happen only after Clay approves the preview.

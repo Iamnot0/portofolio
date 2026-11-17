@@ -35,7 +35,7 @@ enterprise systems and agentic AI workflows.
 - GitHub `Iamnot0/portofolio` is linked: a push to `main` deploys production.
 - Database: Neon Postgres via `DATABASE_URL` (separate dev and prod endpoints).
 - Request bodies to functions are capped at 4.5 MB.
-- Clay's machine runs Proton VPN, which resets Postgres on port 5432.
+- Some networks block outbound Postgres connections on port 5432.
 
 ## Approaches considered
 
@@ -51,8 +51,8 @@ enterprise systems and agentic AI workflows.
 
 - `src/app.js` mounts routers under `/api`; JSON body limit 4.5 MB.
 - Database access through `@neondatabase/serverless` (HTTPS/WebSockets on 443):
-  parameterised by construction, faster cold starts on Vercel, and it works through
-  Clay's VPN, which removes the local-dev 5432 problem at the root.
+  parameterised by construction, faster cold starts on Vercel, and it works on networks
+  that block outbound Postgres on port 5432.
 - Input validation with `zod` on every route.
 - Routes:
   - Public reads: `GET /api/projects`, `GET /api/certificates`, `GET /api/cv` (published rows only).
@@ -122,7 +122,6 @@ enterprise systems and agentic AI workflows.
 1. Work on branch `redesign`. Each push gets a Vercel preview URL.
 2. Clay reviews the preview; production is untouched until approval.
 3. Run migration `001` against production, then merge to `main`.
-4. After launch: rotate the Neon password and delete the pasted Resend key.
 
 ## Decisions (Clay)
 
