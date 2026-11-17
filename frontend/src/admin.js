@@ -1,6 +1,7 @@
 import { upload } from '@vercel/blob/client';
 import { ApiError, apiGet, apiSend } from './api.js';
 import { checkCv, checkImage, uploadPathname } from './admin-upload.js';
+import { createDraftStore, reconcileDraft, saveDraft } from './admin-draft.js';
 import { handleApiError } from './admin-session.js';
 import { el, hostname, publicLink } from './data.js';
 
@@ -32,7 +33,8 @@ function toast(message) {
   toastTimer = setTimeout(() => toastEl.classList.remove('is-visible'), 3200);
 }
 
-const ui = { showSignIn, toast };
+const drafts = createDraftStore();
+const ui = { showSignIn, toast, hasDraft: drafts.has };
 const fail = (error) => handleApiError(error, ui);
 
 /* Theme */
@@ -66,7 +68,7 @@ function showDashboard() {
   state.signedIn = true;
   login.hidden = true;
   dashboard.hidden = false;
-  loadAll();
+  loadAll().then(restoreDraft);
 }
 
 async function restoreSession() {
@@ -113,6 +115,7 @@ loginForm.addEventListener('submit', async (event) => {
 });
 
 document.getElementById('signOut').addEventListener('click', async () => {
+  drafts.clear();
   try {
     await apiSend('POST', '/api/auth/logout');
     showSignIn();
@@ -344,7 +347,9 @@ function setPreview(form, src) {
 }
 
 function discardPreviewUrl() {
-  if (state.editing?.previewUrl) URL.revokeObjectURL(state.editing.previewUrl);
+  if (!state.editing?.previewUrl) return;
+  URL.revokeObjectURL(state.editing.previewUrl);
+  state.editing.previewUrl = null;
 }
 
 function setSaving(kind, saving) {
@@ -354,18 +359,33 @@ function setSaving(kind, saving) {
   state.editing.saving = saving;
 }
 
-function openEditor(kind, item = null) {
+// Opens an item for editing, a blank form, or a draft kept across a session expiry.
+function openEditor(kind, item = null, draft = null) {
   const { dialog, form, noun, fields } = editors[kind];
   discardPreviewUrl();
-  state.editing = { kind, id: item?.id ?? null, imageUrl: item?.imageUrl ?? null, file: null, previewUrl: null, saving: false };
+  state.editing = draft
+    ? { ...draft, previewUrl: null, saving: false }
+    : { kind, id: item?.id ?? null, imageUrl: item?.imageUrl ?? null, file: null, uploadedUrl: null, previewUrl: null, saving: false, values: null };
+  const { editing } = state;
+  const source = editing.values ?? item ?? {};
   form.reset();
-  dialog.querySelector('h2').textContent = item ? `Edit ${noun}` : `Add ${noun}`;
-  for (const name of fields) form.elements[name].value = item?.[name] ?? '';
-  form.elements.published.checked = item ? item.published : true;
-  setPreview(form, publicLink(state.editing.imageUrl));
+  dialog.querySelector('h2').textContent = editing.id === null ? `Add ${noun}` : `Edit ${noun}`;
+  for (const name of fields) form.elements[name].value = source[name] ?? '';
+  form.elements.published.checked = source.published ?? true;
+  if (editing.file) editing.previewUrl = URL.createObjectURL(editing.file);
+  setPreview(form, editing.previewUrl ?? publicLink(editing.uploadedUrl ?? editing.imageUrl));
   form.querySelector('.form-error').textContent = '';
   dialog.showModal();
   form.elements.title.focus();
+}
+
+function restoreDraft() {
+  if (!state.signedIn) return;
+  const kept = drafts.take();
+  if (!kept) return;
+  const { draft, missing } = reconcileDraft(kept, state[kept.kind], state.failed[kept.kind]);
+  openEditor(draft.kind, null, draft);
+  if (missing) editors[draft.kind].form.querySelector('.form-error').textContent = 'This item was removed while you were signed out. Saving adds it again.';
 }
 
 async function saveEditor(kind) {
@@ -386,21 +406,21 @@ async function saveEditor(kind) {
   }
 
   error.textContent = '';
+  editing.values = { ...values, [urlField]: values[urlField] || null, published: form.elements.published.checked };
   setSaving(kind, true);
   try {
-    const imageUrl = editing.file
-      ? (await uploadFile(uploadPathname(kind, values.title, editing.file), editing.file, 'image')).url
-      : editing.imageUrl;
-    const body = { ...values, [urlField]: values[urlField] || null, imageUrl, published: form.elements.published.checked };
-    await (editing.id === null
-      ? apiSend('POST', `/api/admin/${kind}`, body)
-      : apiSend('PUT', `/api/admin/${kind}/${editing.id}`, body));
+    const saved = await saveDraft(editing, {
+      drafts,
+      ui,
+      send: apiSend,
+      uploadImage: async (file, title) => (await uploadFile(uploadPathname(kind, title, file), file, 'image')).url,
+    });
+    if (!saved) return;
     await loadList(kind);
     dialog.close();
-    toast('Saved.');
+    if (state.signedIn) toast('Saved.');
   } catch (caught) {
-    if (caught.status === 401) fail(caught);
-    else error.textContent = caught.message;
+    error.textContent = caught.message;
   } finally {
     setSaving(kind, false);
   }
@@ -425,6 +445,7 @@ for (const [kind, { dialog, form }] of Object.entries(editors)) {
     }
     discardPreviewUrl();
     state.editing.file = file;
+    state.editing.uploadedUrl = null;
     state.editing.previewUrl = URL.createObjectURL(file);
     setPreview(form, state.editing.previewUrl);
     error.textContent = '';
