@@ -889,7 +889,7 @@ a.card-inner .card-cta {
   }
 
   .contact {
-    padding-block: 40svh 10vh;
+    padding-block: clamp(250px, 34svh, 320px) 10vh;
   }
 
   .contact-form .button {

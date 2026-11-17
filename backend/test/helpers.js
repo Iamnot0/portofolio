@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { createApp } from '../src/app.js';
+import { issueStartToken } from '../src/contact/start-token.js';
 
 const MIGRATIONS_DIR = new URL('../db/migrations/', import.meta.url);
 
@@ -51,14 +52,16 @@ export function fakeMailer() {
   return mailer;
 }
 
-// A contact form body a human would send: filled at `now - 10 s`, honeypot empty.
+export const TEST_SESSION_SECRET = 'contact-test-session-secret-0123456789';
+
+// A contact form body a human would send: started `now - 10 s`, honeypot empty.
 export const contactBody = (overrides = {}, now = new Date()) => ({
   name: 'Ada Lovelace',
   email: 'ada@example.com',
   company: 'Analytical Engines',
   message: 'I would like to talk about a project.',
   website: '',
-  startedAt: now.getTime() - 10_000,
+  startToken: issueStartToken(TEST_SESSION_SECRET, now.getTime() - 10_000),
   ...overrides,
 });
 

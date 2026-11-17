@@ -1,4 +1,4 @@
-import { submitContact } from './contact.js';
+import { createContactSession } from './contact.js';
 
 const SENDING = 'Sending…';
 const THANKS = 'Thanks. Your message is on its way.';
@@ -7,10 +7,10 @@ export function setupContactForm(form) {
   const status = form.querySelector('#contactStatus');
   const submit = form.querySelector('button[type="submit"]');
   const idleLabel = submit.textContent;
-  let startedAt = null;
+  const session = createContactSession();
 
-  // The server ignores submissions made too quickly to be typed, so timing starts at first focus.
-  form.addEventListener('focusin', () => { startedAt ??= Date.now(); });
+  // The server times the form from a token it issues on first focus.
+  form.addEventListener('focusin', () => session.begin());
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -19,13 +19,12 @@ export function setupContactForm(form) {
     submit.textContent = SENDING;
     status.textContent = '';
 
-    const result = await submitContact({
+    const result = await session.submit({
       name: data.get('name'),
       email: data.get('email'),
       company: data.get('company'),
       message: data.get('message'),
       website: data.get('website'),
-      startedAt: startedAt ?? Date.now(),
     });
 
     if (result.ok) {

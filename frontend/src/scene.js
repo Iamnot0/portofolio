@@ -3,6 +3,7 @@ import {
   BufferGeometry,
   Color,
   Group,
+  MathUtils,
   PerspectiveCamera,
   Plane,
   Points,
@@ -30,6 +31,14 @@ const PALETTES = {
 };
 
 const CAMERA_TRAVEL = 60;
+const CAMERA_FOV = 35;
+const CAMERA_START_Z = 6;
+// The desktop stages were composed for a 16:10 window; narrower windows shrink and pull them inward.
+const DESIGN_ASPECT = 1.6;
+// Breathing room, in CSS pixels, between a phone placement and the nav or the copy it must clear.
+const PHONE_CLEARANCE = 16;
+// Tilt and perspective render a formation slightly larger than its flat bounds.
+const PERSPECTIVE_ALLOWANCE = 0.9;
 
 const swarmVertex = /* glsl */ `
 attribute vec3 aP1;
@@ -141,6 +150,21 @@ void main() {
 const damp = (current, target, lambda, dt) => current + (target - current) * (1 - Math.exp(-lambda * dt));
 const smooth = (t) => t * t * (3 - 2 * t);
 
+// Extent of a formation's points on the x and y axes, with its centre.
+function boundsOf(points) {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i < points.length; i += 3) {
+    minX = Math.min(minX, points[i]);
+    maxX = Math.max(maxX, points[i]);
+    minY = Math.min(minY, points[i + 1]);
+    maxY = Math.max(maxY, points[i + 1]);
+  }
+  return { width: maxX - minX, height: maxY - minY, centerX: (minX + maxX) / 2, centerY: (minY + maxY) / 2 };
+}
+
 function makeDust(count) {
   const positions = new Float32Array(count * 3);
   const sizes = new Float32Array(count);
@@ -171,8 +195,8 @@ export async function createScene(canvas, { reduceMotion }) {
   const data = await buildFormations(count);
 
   const scene = new Scene();
-  const camera = new PerspectiveCamera(35, 1, 0.1, 120);
-  camera.position.z = 6;
+  const camera = new PerspectiveCamera(CAMERA_FOV, 1, 0.1, 120);
+  camera.position.z = CAMERA_START_Z;
 
   const geometry = new BufferGeometry();
   const [code, glyph, gear, shield, orbit] = data.formations;
@@ -213,6 +237,10 @@ export async function createScene(canvas, { reduceMotion }) {
   dust.frustumCulled = false;
   scene.add(dust);
 
+  const codeBounds = boundsOf(code);
+  const orbitBounds = boundsOf(orbit);
+  const phoneStages = { hero: null, contact: null };
+
   const state = { ...STAGES[0] };
   const pointer = { ndc: new Vector2(), inside: false, tiltX: 0, tiltY: 0 };
   const raycaster = new Raycaster();
@@ -236,14 +264,42 @@ export async function createScene(canvas, { reduceMotion }) {
     uniforms.uPixelRatio.value = ratio;
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    if (narrowQuery.matches) measurePhoneStages();
+  }
+
+  // Phones: fit a formation into the free band between two page landmarks, measured from the live layout.
+  function fitToBand(bounds, stage, topPx, bottomPx) {
+    const unitsPerPx = (2 * CAMERA_START_Z * Math.tan(MathUtils.degToRad(CAMERA_FOV / 2))) / window.innerHeight;
+    const bandPx = Math.max(bottomPx - topPx, 1);
+    const widthPx = window.innerWidth - 2 * PHONE_CLEARANCE;
+    const scale = PERSPECTIVE_ALLOWANCE * Math.min((bandPx * unitsPerPx) / bounds.height, (widthPx * unitsPerPx) / bounds.width);
+    const centerPx = (topPx + bottomPx) / 2;
+    return {
+      ...stage,
+      x: -bounds.centerX * scale,
+      y: (window.innerHeight / 2 - centerPx) * unitsPerPx - bounds.centerY * scale,
+      scale,
+    };
+  }
+
+  function measurePhoneStages() {
+    const navBottom = document.querySelector('.nav').getBoundingClientRect().bottom + PHONE_CLEARANCE;
+    const heroTitleTop = document.querySelector('.hero-title').offsetTop - PHONE_CLEARANCE;
+    const contact = document.getElementById('contact');
+    const contactTitleTop = document.querySelector('.contact-title').offsetTop - contact.offsetTop - PHONE_CLEARANCE;
+    phoneStages.hero = fitToBand(codeBounds, STAGES[0], navBottom, heroTitleTop);
+    phoneStages.contact = { ...fitToBand(orbitBounds, STAGES[4], navBottom, contactTitleTop), opacity: 0.45 };
   }
 
   function stageTarget(stage, index) {
-    if (!narrowQuery.matches) return stage;
-    // Phones: the swarm leads the hero above the copy, then recedes behind the text.
-    return index === 0
-      ? { ...stage, x: 0.2, y: 1.3, scale: 0.44 }
-      : { ...stage, x: 0, y: 0.2, z: -1.5, scale: 0.75, opacity: 0.22 };
+    if (!narrowQuery.matches) {
+      const fit = Math.min(1, camera.aspect / DESIGN_ASPECT);
+      return { ...stage, x: stage.x * fit, scale: stage.scale * fit };
+    }
+    // Phones: the swarm leads the hero above the copy, recedes behind the text, then settles above the contact heading.
+    if (index === 0) return phoneStages.hero;
+    if (index === STAGES.length - 1) return phoneStages.contact;
+    return { ...stage, x: 0, y: 0.2, z: -1.5, scale: 0.75, opacity: 0.22 };
   }
 
   function computeTarget(progress) {
@@ -267,12 +323,12 @@ export async function createScene(canvas, { reduceMotion }) {
     for (const key of Object.keys(state)) state[key] = damp(state[key], target[key], rate, step);
     uniforms.uStage.value = reduceMotion ? stage : damp(uniforms.uStage.value, stage, 2.6, step);
 
-    camera.position.z = damp(camera.position.z, 6 - scrollFraction * CAMERA_TRAVEL, reduceMotion ? 1000 : 4, step);
+    camera.position.z = damp(camera.position.z, CAMERA_START_Z - scrollFraction * CAMERA_TRAVEL, reduceMotion ? 1000 : 4, step);
 
     pointer.tiltX = damp(pointer.tiltX, pointer.inside ? pointer.ndc.y * 0.2 : 0, 2.5, step);
     pointer.tiltY = damp(pointer.tiltY, pointer.inside ? pointer.ndc.x * 0.3 : 0, 2.5, step);
 
-    group.position.set(state.x, state.y, camera.position.z - 6 + state.z);
+    group.position.set(state.x, state.y, camera.position.z - CAMERA_START_Z + state.z);
     group.scale.setScalar(state.scale);
     // The gear turns while the founder section is in view; other shapes stay upright.
     const gearWeight = Math.max(0, 1 - Math.abs(stage - 2));

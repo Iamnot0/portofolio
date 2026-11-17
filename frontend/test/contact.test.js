@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { submitContact } from '../src/contact.js';
+import { createContactSession, submitContact } from '../src/contact.js';
 
 const fields = {
   name: 'Ada Lovelace',
@@ -8,7 +8,7 @@ const fields = {
   company: '',
   message: 'I would like to talk about a project.',
   website: '',
-  startedAt: 1_700_000_000_000,
+  startToken: 'signed.token',
 };
 
 const reply = (body, status) => async () => new Response(JSON.stringify(body), { status });
@@ -45,5 +45,124 @@ describe('submitContact', () => {
     const result = await submitContact(fields, async () => { throw new TypeError('fetch failed'); });
     assert.equal(result.ok, false);
     assert.match(result.error, /clay\.net@proton\.me/);
+  });
+});
+
+describe('createContactSession', () => {
+  const { startToken, ...visitorFields } = fields;
+  const EMAIL_FALLBACK = 'Message could not be sent. Email clay.net@proton.me directly.';
+
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+  // A fake clock whose wait() advances time instead of sleeping.
+  const clock = () => {
+    const state = { time: 1_000, waits: [] };
+    return {
+      state,
+      now: () => state.time,
+      wait: async (ms) => { state.waits.push(ms); state.time += ms; },
+    };
+  };
+
+  const server = (clk, { tokens = ['token-1'], post = () => new Response(JSON.stringify({ ok: true }), { status: 202 }) } = {}) => {
+    const calls = [];
+    const queue = [...tokens];
+    const fetchImpl = async (url, init) => {
+      calls.push({ url, init, at: clk.now() });
+      if (url === '/api/contact/start') {
+        const token = queue.shift();
+        if (token === undefined) throw new TypeError('fetch failed');
+        return new Response(JSON.stringify({ token }), { status: 200 });
+      }
+      return post(url, init);
+    };
+    return { calls, fetchImpl };
+  };
+
+  it('sends the server-issued token with the submission', async () => {
+    const clk = clock();
+    const { calls, fetchImpl } = server(clk);
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    session.begin();
+    assert.deepEqual(await session.submit(visitorFields), { ok: true });
+
+    const post = calls.find((call) => call.url === '/api/contact');
+    assert.deepEqual(JSON.parse(post.init.body), { ...visitorFields, startToken: 'token-1' });
+  });
+
+  it('waits until 3.5 s after the token arrived before posting', async () => {
+    const clk = clock();
+    const { calls, fetchImpl } = server(clk);
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    session.begin();
+    await session.submit(visitorFields);
+    assert.deepEqual(clk.state.waits, [3500]);
+    assert.equal(calls.find((call) => call.url === '/api/contact').at, 1_000 + 3500);
+  });
+
+  it('waits only for the time still missing', async () => {
+    const clk = clock();
+    const { fetchImpl } = server(clk);
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    session.begin();
+    await settle();
+    clk.state.time += 3000;
+    await session.submit(visitorFields);
+    assert.deepEqual(clk.state.waits, [500]);
+  });
+
+  it('does not wait when the floor has already passed', async () => {
+    const clk = clock();
+    const { fetchImpl } = server(clk);
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    session.begin();
+    await settle();
+    clk.state.time += 10_000;
+    await session.submit(visitorFields);
+    assert.deepEqual(clk.state.waits, []);
+  });
+
+  it('retries a failed token fetch once at submit', async () => {
+    const clk = clock();
+    let starts = 0;
+    const fetchImpl = async (url, init) => {
+      if (url === '/api/contact/start') {
+        starts += 1;
+        if (starts === 1) throw new TypeError('fetch failed');
+        return new Response(JSON.stringify({ token: 'late-token' }), { status: 200 });
+      }
+      assert.equal(JSON.parse(init.body).startToken, 'late-token');
+      return new Response(JSON.stringify({ ok: true }), { status: 202 });
+    };
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    session.begin();
+    assert.deepEqual(await session.submit(visitorFields), { ok: true });
+    assert.equal(starts, 2);
+  });
+
+  it('shows the email fallback when the token cannot be fetched, without posting', async () => {
+    const clk = clock();
+    const { calls, fetchImpl } = server(clk, { tokens: [] });
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    session.begin();
+    assert.deepEqual(await session.submit(visitorFields), { ok: false, error: EMAIL_FALLBACK });
+    assert.equal(calls.some((call) => call.url === '/api/contact'), false);
+  });
+
+  it('surfaces the API error text after a successful token', async () => {
+    const clk = clock();
+    const { fetchImpl } = server(clk, { post: () => new Response(JSON.stringify({ error: 'Too many messages. Try again later.' }), { status: 429 }) });
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    assert.deepEqual(await session.submit(visitorFields), { ok: false, error: 'Too many messages. Try again later.' });
+  });
+
+  it('reuses one token across repeated focus events', async () => {
+    const clk = clock();
+    const { calls, fetchImpl } = server(clk);
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    session.begin();
+    session.begin();
+    await session.submit(visitorFields);
+    assert.equal(calls.filter((call) => call.url === '/api/contact/start').length, 1);
   });
 });

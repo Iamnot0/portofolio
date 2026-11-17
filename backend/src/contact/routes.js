@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { renderContactNotification } from '../email/contact-notification.js';
 import { HttpError, asyncRoute, clientIp } from '../http.js';
 import { parseBody } from '../content/schemas.js';
+import { isHumanPaced, issueStartToken } from './start-token.js';
 
 const LOGO_URL = 'https://www.aungkaungkhant.work/email/clay-wordmark.png';
-const MIN_FILL_MS = 3000;
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_PER_WINDOW = 3;
 
@@ -31,8 +31,8 @@ const contactSchema = z.object(
 const isFilled = (value) => value !== undefined && value !== null && value !== '';
 
 // Bots fill the hidden field and submit faster than a person can type.
-function looksAutomated({ website, startedAt }, now) {
-  return isFilled(website) || typeof startedAt !== 'number' || !(now.getTime() - startedAt >= MIN_FILL_MS);
+function looksAutomated({ website, startToken }, { secret, now }) {
+  return isFilled(website) || !isHumanPaced(startToken, secret, now.getTime());
 }
 
 // Counting and inserting under one per-IP lock keeps parallel submissions from exceeding the cap.
@@ -56,10 +56,15 @@ async function storeUnlessLimited(db, ip, submission, now) {
 export function contactRouter({ db, mailer, env, clock }) {
   const router = Router();
 
+  router.get('/start', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ token: issueStartToken(env.SESSION_SECRET, clock().getTime()) });
+  });
+
   router.post('/', asyncRoute(async (req, res) => {
     const input = req.body ?? {};
     const now = clock();
-    if (looksAutomated(input, now)) return res.status(202).json({ ok: true });
+    if (looksAutomated(input, { secret: env.SESSION_SECRET, now })) return res.status(202).json({ ok: true });
 
     const submission = parseBody(contactSchema, input);
     if (!(await storeUnlessLimited(db, clientIp(req), submission, now))) {

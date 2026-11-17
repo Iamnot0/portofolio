@@ -1,11 +1,12 @@
 import { after, before, beforeEach, describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createResendMailer } from '../src/email/resend.js';
-import { contactBody, fakeMailer, testApp } from './helpers.js';
+import { issueStartToken } from '../src/contact/start-token.js';
+import { contactBody, fakeMailer, TEST_SESSION_SECRET, testApp } from './helpers.js';
 
 const START = new Date('2026-03-01T12:00:00Z');
 const HOUR = 60 * 60 * 1000;
-const ENV = { CONTACT_TO: 'clay.net@proton.me', CONTACT_FROM: 'contact@aungkaungkhant.work' };
+const ENV = { CONTACT_TO: 'clay.net@proton.me', CONTACT_FROM: 'contact@aungkaungkhant.work', SESSION_SECRET: TEST_SESSION_SECRET };
 
 const TOO_MANY = { error: 'Too many messages. Try again later.' };
 const NOT_SENT = { error: 'Message could not be sent. Email clay.net@proton.me directly.' };
@@ -97,13 +98,32 @@ describe('contact form', () => {
     };
 
     it('swallows a filled honeypot', () => trapped({ website: 'https://spam.example' }));
-    it('swallows a missing startedAt', () => trapped({ startedAt: undefined }));
-    it('swallows a non-numeric startedAt', () => trapped({ startedAt: String(START.getTime() - 10_000) }));
-    it('swallows a startedAt in the future', () => trapped({ startedAt: START.getTime() + 60_000 }));
-    it('swallows a form filled in under 3 seconds', () => trapped({ startedAt: START.getTime() - 2_999 }));
+    const startedAgo = (ms, secret = TEST_SESSION_SECRET) => ({ startToken: issueStartToken(secret, START.getTime() - ms) });
+
+    it('swallows a missing start token', () => trapped({ startToken: undefined }));
+    it('swallows a non-string start token', () => trapped({ startToken: START.getTime() - 10_000 }));
+    it('swallows a malformed start token', () => trapped({ startToken: 'not-a-token' }));
+    it('swallows a start token with a forged signature', () => {
+      const [stamp] = issueStartToken(TEST_SESSION_SECRET, START.getTime() - 10_000).split('.');
+      return trapped({ startToken: `${stamp}.${Buffer.from('forged').toString('base64url')}` });
+    });
+    it('swallows a start token whose time was tampered with', () => {
+      const [, signature] = issueStartToken(TEST_SESSION_SECRET, START.getTime() - 10_000).split('.');
+      const stamp = Buffer.from(String(START.getTime() - 60_000)).toString('base64url');
+      return trapped({ startToken: `${stamp}.${signature}` });
+    });
+    it('swallows a start token signed with another secret', () => trapped(startedAgo(10_000, 'another-secret-entirely-0123456789')));
+    it('swallows a start token issued in the future', () => trapped(startedAgo(-60_000)));
+    it('swallows a form filled in under 3 seconds', () => trapped(startedAgo(2_900)));
+    it('swallows a start token older than 24 hours', () => trapped(startedAgo(24 * HOUR + 1)));
 
     it('accepts a form filled in exactly 3 seconds', async () => {
-      assert.equal((await submit({ startedAt: START.getTime() - 3_000 })).status, 202);
+      assert.equal((await submit(startedAgo(3_000))).status, 202);
+      assert.equal(mailer.sent.length, 1);
+    });
+
+    it('accepts a start token that is exactly 24 hours old', async () => {
+      assert.equal((await submit(startedAgo(24 * HOUR))).status, 202);
       assert.equal(mailer.sent.length, 1);
     });
 
@@ -111,6 +131,31 @@ describe('contact form', () => {
       const res = await app.request('/api/contact', { method: 'POST', body: [] });
       assert.equal(res.status, 202);
       assert.equal((await stored()).length, 0);
+    });
+  });
+
+  describe('start token endpoint', () => {
+    it('issues a token that is honoured three seconds later and not before', async () => {
+      const { status, headers, body } = await app.request('/api/contact/start');
+      assert.equal(status, 200);
+      assert.equal(headers.get('cache-control'), 'no-store');
+      assert.equal(typeof body.token, 'string');
+
+      now = new Date(START.getTime() + 2_900);
+      await app.request('/api/contact', { method: 'POST', body: contactBody({ startToken: body.token }, now) });
+      assert.equal(mailer.sent.length, 0);
+
+      now = new Date(START.getTime() + 3_000);
+      await app.request('/api/contact', { method: 'POST', body: contactBody({ startToken: body.token }, now) });
+      assert.equal(mailer.sent.length, 1);
+    });
+
+    it('is unaffected by the visitor clock', async () => {
+      const { body } = await app.request('/api/contact/start');
+      now = new Date(START.getTime() + 5_000);
+      const res = await app.request('/api/contact', { method: 'POST', body: { ...contactBody({}, now), startToken: body.token, startedAt: START.getTime() + HOUR } });
+      assert.equal(res.status, 202);
+      assert.equal(mailer.sent.length, 1);
     });
   });
 
