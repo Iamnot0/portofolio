@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { HttpError, asyncRoute } from '../http.js';
+import { HttpError, asyncRoute, clientIp } from '../http.js';
 import { sameEmail, verifyPassword } from './password.js';
 import { clearAttempts, registerAttempt } from './rate-limit.js';
 import { clearSessionCookie, issueSession, readSession, setSessionCookie } from './session.js';
@@ -8,7 +8,6 @@ import { claimTotpStep, totpStep } from './totp.js';
 const MAX_FIELD_LENGTH = 1024;
 
 const text = (value) => (typeof value === 'string' && value.length <= MAX_FIELD_LENGTH ? value : '');
-const clientIp = (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
 
 export function authRouter(ctx) {
   const { db, env, clock } = ctx;

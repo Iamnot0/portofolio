@@ -10,6 +10,8 @@ export const asyncRoute = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
+export const clientIp = (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
+
 export function notFound(req, res) {
   res.status(404).json({ error: 'Not found' });
 }

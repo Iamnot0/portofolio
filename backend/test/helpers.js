@@ -37,6 +37,31 @@ export function fakeBlob() {
   return blob;
 }
 
+// Stands in for the Resend client: records every message, or rejects when `failWith` is set.
+export function fakeMailer() {
+  const mailer = {
+    sent: [],
+    failWith: null,
+    async send(message) {
+      if (mailer.failWith) throw mailer.failWith;
+      mailer.sent.push(message);
+      return { id: `fake-${mailer.sent.length}` };
+    },
+  };
+  return mailer;
+}
+
+// A contact form body a human would send: filled at `now - 10 s`, honeypot empty.
+export const contactBody = (overrides = {}, now = new Date()) => ({
+  name: 'Ada Lovelace',
+  email: 'ada@example.com',
+  company: 'Analytical Engines',
+  message: 'I would like to talk about a project.',
+  website: '',
+  startedAt: now.getTime() - 10_000,
+  ...overrides,
+});
+
 export async function serve(app) {
   const server = app.listen(0);
   await new Promise((resolve) => server.once('listening', resolve));

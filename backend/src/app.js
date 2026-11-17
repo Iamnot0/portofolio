@@ -1,5 +1,6 @@
 import express from 'express';
 import { authRouter } from './auth/routes.js';
+import { contactRouter } from './contact/routes.js';
 import { adminContentRouter, publicContentRouter } from './content/routes.js';
 import { errorHandler, notFound, originGuard } from './http.js';
 import { uploadsRouter } from './uploads/routes.js';
@@ -17,6 +18,7 @@ export function createApp({ db, blob, mailer, env = {}, clock = () => new Date()
   app.use('/api', publicContentRouter(ctx));
   app.use('/api/admin', adminContentRouter(ctx));
   app.use('/api/uploads', uploadsRouter(ctx));
+  app.use('/api/contact', contactRouter(ctx));
   // Feature routers mount here as `app.use('/api/<area>', areaRouter(ctx))`.
 
   app.use(notFound);

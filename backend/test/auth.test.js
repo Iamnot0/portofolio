@@ -7,7 +7,7 @@ import { hashPassword, verifyPassword } from '../src/auth/password.js';
 import { verifyTotp } from '../src/auth/totp.js';
 import { issueSession, requireAdmin } from '../src/auth/session.js';
 import { errorHandler } from '../src/http.js';
-import { serve, testApp } from './helpers.js';
+import { contactBody, fakeMailer, serve, testApp } from './helpers.js';
 
 const EMAIL = 'admin@portfolio.test';
 const PASSWORD = randomBytes(12).toString('base64url');
@@ -272,7 +272,7 @@ describe('admin sign-in', () => {
 describe('origin guard', () => {
   let app;
   before(async () => {
-    app = await testApp({ env: {} });
+    app = await testApp({ env: {}, mailer: fakeMailer() });
   });
   after(() => app.close());
 
@@ -312,8 +312,12 @@ describe('origin guard', () => {
   });
 
   it('leaves the public contact form open to cross-origin posts', async () => {
-    const res = await post('/api/contact', { origin: 'https://evil.example' });
-    assert.notEqual(res.status, 403);
+    const res = await app.request('/api/contact', {
+      method: 'POST',
+      body: contactBody(),
+      headers: { origin: 'https://evil.example' },
+    });
+    assert.equal(res.status, 202);
   });
 });
 
