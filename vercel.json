@@ -4,7 +4,13 @@
   "trailingSlash": false,
   "services": {
     "frontend": {
-      "root": "frontend/"
+      "root": "frontend/",
+      "rewrites": [
+        {
+          "source": "/(experience|work|founder|certifications|contact)",
+          "destination": "/index.html"
+        }
+      ]
     },
     "backend": {
       "root": "backend/",
@@ -17,8 +23,66 @@
       }
     }
   },
+  "redirects": [
+    {
+      "source": "/projects",
+      "destination": "/work",
+      "statusCode": 308
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/admin",
+      "statusCode": 308
+    }
+  ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": { "service": "backend" } },
-    { "source": "/(.*)", "destination": { "service": "frontend" } }
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.public.blob.vercel-storage.com; connect-src 'self' https://vercel.com/api/blob https://*.public.blob.vercel-storage.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/admin",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
+    }
   ]
 }
