@@ -230,6 +230,12 @@
   margin-bottom: 28px;
 }
 
+.panel-head h2,
+.editor h2 {
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+}
+
 .panel-head h2 {
   font-size: clamp(2.2rem, 4vw, 3rem);
 }
