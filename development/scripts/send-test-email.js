@@ -1,9 +1,8 @@
 // Sends a sample contact-form notification through Resend so the template can be checked in a real inbox.
 // Usage: RESEND_API_KEY=... node development/scripts/send-test-email.js recipient@example.com
 
-const fs = require('node:fs');
-const path = require('node:path');
-const { renderContactNotification } = require('../../backend/src/email/contact-notification');
+import { readFileSync } from 'node:fs';
+import { renderContactNotification } from '../../backend/src/email/contact-notification.js';
 
 async function main() {
   const to = process.argv[2];
@@ -20,7 +19,7 @@ async function main() {
     message: 'This is a sample message to preview the contact form email.\n\nReplying to it goes to the visitor’s address.',
   }, 'cid:clay-wordmark');
 
-  const logo = fs.readFileSync(path.join(__dirname, '../../backend/src/email/clay-wordmark.png')).toString('base64');
+  const logo = readFileSync(new URL('../../backend/src/email/clay-wordmark.png', import.meta.url)).toString('base64');
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
