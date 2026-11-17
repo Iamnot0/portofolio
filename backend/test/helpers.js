@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
-import { createApp } from '../src/app.js';
+import express from 'express';
+import { createApi } from '../src/api.js';
 import { issueStartToken } from '../src/contact/start-token.js';
 
 const MIGRATIONS_DIR = new URL('../db/migrations/', import.meta.url);
@@ -86,7 +87,7 @@ export async function serve(app) {
 
 export async function testApp(overrides = {}) {
   const db = await createTestDb();
-  const app = createApp({ db, env: {}, ...overrides });
+  const app = express().use(createApi({ db, env: {}, ...overrides }));
   const server = await serve(app);
   return {
     db,

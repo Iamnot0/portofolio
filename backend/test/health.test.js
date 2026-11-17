@@ -17,11 +17,6 @@ describe('app foundation', () => {
     assert.deepEqual(res.body, { ok: true });
   });
 
-  it('does not advertise Express', async () => {
-    const res = await app.request('/api/health');
-    assert.equal(res.headers.get('x-powered-by'), null);
-  });
-
   it('answers unknown routes with a JSON 404', async () => {
     const res = await app.request('/api/nope');
     assert.equal(res.status, 404);
@@ -42,6 +37,22 @@ describe('app foundation', () => {
     });
     assert.equal(res.status, 413);
     assert.deepEqual(res.body, { error: 'Request body too large' });
+  });
+});
+
+describe('production entrypoint', () => {
+  let server;
+  before(async () => {
+    const { default: app } = await import('../src/index.js');
+    server = await serve(app);
+  });
+  after(() => server.close());
+
+  it('serves the API without advertising Express', async () => {
+    const res = await server.request('/api/health');
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { ok: true });
+    assert.equal(res.headers.get('x-powered-by'), null);
   });
 });
 
