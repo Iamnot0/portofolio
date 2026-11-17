@@ -1,5 +1,6 @@
 import express from 'express';
 import { authRouter } from './auth/routes.js';
+import { adminContentRouter, publicContentRouter } from './content/routes.js';
 import { errorHandler, notFound, originGuard } from './http.js';
 
 export function createApp({ db, blob, mailer, env = {}, clock = () => new Date() }) {
@@ -12,6 +13,8 @@ export function createApp({ db, blob, mailer, env = {}, clock = () => new Date()
 
   app.get('/api/health', (req, res) => res.json({ ok: true }));
   app.use('/api/auth', authRouter(ctx));
+  app.use('/api', publicContentRouter(ctx));
+  app.use('/api/admin', adminContentRouter(ctx));
   // Feature routers mount here as `app.use('/api/<area>', areaRouter(ctx))`.
 
   app.use(notFound);
