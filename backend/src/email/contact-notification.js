@@ -116,7 +116,7 @@ function renderContactNotification({ name, email, company = '', message, receive
             <td style="padding:24px 36px 32px;border-top:1px solid ${COLORS.line};">
               <img src="${logoSrc}" width="44" height="28" alt="Clay" style="display:block;border:0;width:44px;height:28px;">
               <p style="margin:10px 0 0;font:500 14px/1.5 ${SANS};color:${COLORS.ink};">Aung Kaung Khant</p>
-              <p style="margin:0;font:400 13px/1.5 ${SANS};color:${COLORS.muted};">Full Stack Engineer · Founder of MR ROBOT · Yangon</p>
+              <p style="margin:0;font:400 13px/1.5 ${SANS};color:${COLORS.muted};">Senior Full-stack Engineer · Founder of MR ROBOT · Yangon</p>
               <p style="margin:8px 0 0;font:400 13px/1.5 ${SANS};">
                 <a href="${SITE}" style="color:${COLORS.ink};text-decoration:none;">aungkaungkhant.work</a>
                 <span style="color:${COLORS.muted};">&nbsp;·&nbsp;</span>
@@ -148,7 +148,7 @@ function renderContactNotification({ name, email, company = '', message, receive
     '',
     '--',
     'Aung Kaung Khant (Clay)',
-    'Full Stack Engineer · Founder of MR ROBOT · Yangon',
+    'Senior Full-stack Engineer · Founder of MR ROBOT · Yangon',
     'aungkaungkhant.work',
   ].join('\n');
 
