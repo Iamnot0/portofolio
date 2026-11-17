@@ -12,7 +12,7 @@ export async function submitContact(fields, fetchImpl = fetch) {
     return { ok: true };
   } catch (error) {
     if (!(error instanceof ApiError)) throw error;
-    return { ok: false, error: error.status === 0 ? UNREACHABLE : error.message };
+    return { ok: false, error: error.status === 0 || error.status >= 500 ? UNREACHABLE : error.message };
   }
 }
 

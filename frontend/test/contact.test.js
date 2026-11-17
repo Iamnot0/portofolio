@@ -41,6 +41,18 @@ describe('submitContact', () => {
     assert.deepEqual(result, { ok: false, error: 'Enter a valid email address' });
   });
 
+  for (const status of [500, 502, 503, 504]) {
+    it(`falls back to a direct email prompt on a ${status}`, async () => {
+      const result = await submitContact(fields, reply({ error: 'Internal error' }, status));
+      assert.deepEqual(result, { ok: false, error: 'Message could not be sent. Email clay.net@proton.me directly.' });
+    });
+  }
+
+  it('falls back to a direct email prompt on a 5xx without a JSON body', async () => {
+    const result = await submitContact(fields, async () => new Response('<html>Bad gateway</html>', { status: 500 }));
+    assert.deepEqual(result, { ok: false, error: 'Message could not be sent. Email clay.net@proton.me directly.' });
+  });
+
   it('falls back to a direct email prompt when the network fails', async () => {
     const result = await submitContact(fields, async () => { throw new TypeError('fetch failed'); });
     assert.equal(result.ok, false);
