@@ -1,16 +1,28 @@
-import { el, getCertificates, getCV, getProjects, hostname, publicLink } from './data.js';
-
-const PREVIEW_NOTE = 'Preview only: changed on this page, not on your live site.';
-const MAX_UPLOAD = 4 * 1024 * 1024;
+import { upload } from '@vercel/blob/client';
+import { ApiError, apiGet, apiSend } from './api.js';
+import { checkCv, checkImage, uploadPathname } from './admin-upload.js';
+import { handleApiError } from './admin-session.js';
+import { el, hostname, publicLink } from './data.js';
 
 const login = document.getElementById('login');
+const loginForm = document.getElementById('loginForm');
+const loginError = document.getElementById('loginError');
 const dashboard = document.getElementById('dashboard');
 const toastEl = document.getElementById('toast');
 const lists = {
   projects: document.getElementById('projectList'),
   certificates: document.getElementById('certificateList'),
 };
-const state = { projects: [], certificates: [], cv: null, editing: null, loaded: false };
+const state = {
+  signedIn: false,
+  projects: [],
+  certificates: [],
+  failed: { projects: false, certificates: false },
+  ordering: new Set(),
+  cv: null,
+  cvFailed: false,
+  editing: null,
+};
 
 let toastTimer = 0;
 function toast(message) {
@@ -20,22 +32,8 @@ function toast(message) {
   toastTimer = setTimeout(() => toastEl.classList.remove('is-visible'), 3200);
 }
 
-// Opens a CV that is either a stored https URL or a data URL picked in this session.
-async function openPdf(source) {
-  const blob = await (await fetch(source)).blob();
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank', 'noopener');
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
-function readAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
+const ui = { showSignIn, toast };
+const fail = (error) => handleApiError(error, ui);
 
 /* Theme */
 const themeToggle = document.getElementById('themeToggle');
@@ -52,46 +50,75 @@ themeToggle.addEventListener('click', () => {
   applyTheme(next);
 });
 
-/* Sign-in (preview: any well-formed email and password opens the dashboard) */
-function showDashboard() {
-  login.hidden = true;
-  dashboard.hidden = false;
-  if (!state.loaded) load();
-}
-
-function showLogin() {
+/* Session */
+function showSignIn(message = '') {
+  state.signedIn = false;
+  state.projects = [];
+  state.certificates = [];
+  state.cv = null;
+  for (const { dialog } of Object.values(editors)) if (dialog.open) dialog.close();
   dashboard.hidden = true;
   login.hidden = false;
+  loginError.textContent = message;
 }
 
-try {
-  if (sessionStorage.getItem('admin-preview') === '1') showDashboard();
-} catch {
-  // Without session storage the preview simply starts at sign-in.
+function showDashboard() {
+  state.signedIn = true;
+  login.hidden = true;
+  dashboard.hidden = false;
+  loadAll();
 }
 
-document.getElementById('loginForm').addEventListener('submit', (event) => {
+async function restoreSession() {
+  try {
+    const { signedIn } = await apiGet('/api/auth/session');
+    if (signedIn) showDashboard();
+    else showSignIn();
+  } catch (error) {
+    showSignIn(error.message);
+  }
+}
+
+loginForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  const form = event.currentTarget;
-  const error = document.getElementById('loginError');
-  if (!form.elements.email.validity.valid || !form.elements.email.value) {
-    error.textContent = 'Enter the email you sign in with.';
-    form.elements.email.focus();
+  const { email, password, code } = loginForm.elements;
+  const problem = !email.value || !email.validity.valid
+    ? ['Enter the email you sign in with.', email]
+    : !password.value
+      ? ['Enter your password.', password]
+      : !code.validity.valid || !code.value
+        ? ['Enter the 6-digit code from your authenticator app.', code]
+        : null;
+  if (problem) {
+    loginError.textContent = problem[0];
+    problem[1].focus();
     return;
   }
-  if (!form.elements.password.value) {
-    error.textContent = 'Enter your password.';
-    form.elements.password.focus();
-    return;
+
+  const submit = loginForm.querySelector('[type="submit"]');
+  loginError.textContent = '';
+  submit.disabled = true;
+  submit.textContent = 'Signing in…';
+  try {
+    await apiSend('POST', '/api/auth/login', { email: email.value.trim(), password: password.value, code: code.value });
+    loginForm.reset();
+    showDashboard();
+  } catch (error) {
+    loginError.textContent = error.message;
+    code.value = '';
+  } finally {
+    submit.disabled = false;
+    submit.textContent = 'Sign in';
   }
-  error.textContent = '';
-  try { sessionStorage.setItem('admin-preview', '1'); } catch { /* preview continues without persistence */ }
-  showDashboard();
 });
 
-document.getElementById('signOut').addEventListener('click', () => {
-  try { sessionStorage.removeItem('admin-preview'); } catch { /* nothing to clear */ }
-  showLogin();
+document.getElementById('signOut').addEventListener('click', async () => {
+  try {
+    await apiSend('POST', '/api/auth/logout');
+    showSignIn();
+  } catch (error) {
+    fail(error);
+  }
 });
 
 /* Tabs */
@@ -116,35 +143,53 @@ tabs.forEach((tab, i) => {
 });
 
 /* Lists */
-const EMPTY = {
-  projects: 'No projects yet. Add your first one and it appears in the Work section.',
-  certificates: 'No certificates yet. Add one and it appears under Certifications.',
+const COPY = {
+  projects: {
+    empty: 'No projects yet. Add your first one and it appears in the Work section.',
+    failed: 'Couldn’t load projects. Check your connection and reload.',
+    loading: 'Loading projects…',
+  },
+  certificates: {
+    empty: 'No certificates yet. Add one and it appears under Certifications.',
+    failed: 'Couldn’t load certificates. Check your connection and reload.',
+    loading: 'Loading certificates…',
+  },
 };
 
+function detailFor(kind, item) {
+  if (kind === 'projects') {
+    const link = publicLink(item.link);
+    return link ? hostname(link) : 'Not deployed';
+  }
+  return item.issuerMeta || 'Add the issuer and date';
+}
+
 function adminRow(item, index, total, kind) {
-  const detail = kind === 'projects'
-    ? (item.link ? hostname(item.link) : 'Not deployed')
-    : (item.meta || 'Add the issuer and date');
+  const busy = state.ordering.has(kind);
   const up = el('button', { className: 'icon-button', text: '↑', attrs: { type: 'button', 'aria-label': `Move ${item.title} up` } });
   const down = el('button', { className: 'icon-button', text: '↓', attrs: { type: 'button', 'aria-label': `Move ${item.title} down` } });
-  up.disabled = index === 0;
-  down.disabled = index === total - 1;
+  up.disabled = busy || index === 0;
+  down.disabled = busy || index === total - 1;
   up.addEventListener('click', () => move(kind, index, index - 1));
   down.addEventListener('click', () => move(kind, index, index + 1));
 
   const edit = el('button', { className: 'quiet-link', text: 'Edit', attrs: { type: 'button' } });
   const del = el('button', { className: 'quiet-link quiet-link--danger', text: 'Delete', attrs: { type: 'button' } });
-  edit.addEventListener('click', () => openEditor(kind, index));
-  del.addEventListener('click', () => remove(kind, index));
+  edit.addEventListener('click', () => openEditor(kind, item));
+  del.addEventListener('click', () => remove(kind, item));
 
+  const image = publicLink(item.imageUrl);
   const row = el('li', { className: 'admin-row', attrs: { draggable: 'true' } }, [
     el('span', { className: 'drag-handle', text: '⋮⋮', attrs: { 'aria-hidden': 'true' } }),
-    item.image
-      ? el('img', { className: 'admin-thumb', attrs: { src: item.image, alt: '', loading: 'lazy' } })
+    image
+      ? el('img', { className: 'admin-thumb', attrs: { src: image, alt: '', loading: 'lazy' } })
       : el('span', { className: 'admin-thumb admin-thumb--empty', text: 'No image' }),
     el('div', { className: 'admin-main' }, [
       el('p', { className: 'admin-title', text: item.title }),
-      el('p', { className: 'admin-detail', text: detail }),
+      el('p', { className: 'admin-detail' }, [
+        detailFor(kind, item),
+        item.published ? null : el('span', { className: 'admin-flag', text: 'Hidden' }),
+      ]),
     ]),
     el('div', { className: 'admin-order' }, [up, down]),
     el('div', { className: 'admin-row-actions' }, [edit, del]),
@@ -155,26 +200,73 @@ function adminRow(item, index, total, kind) {
 
 function render(kind) {
   const items = state[kind];
+  const message = state.failed[kind] ? COPY[kind].failed : COPY[kind].empty;
   lists[kind].replaceChildren(...(items.length
     ? items.map((item, i) => adminRow(item, i, items.length, kind))
-    : [el('li', { className: 'admin-state', text: EMPTY[kind] })]));
+    : [el('li', { className: 'admin-state', text: message })]));
 }
 
-function move(kind, from, to) {
-  const items = state[kind];
-  if (to < 0 || to >= items.length || from === to) return;
-  const [item] = items.splice(from, 1);
-  items.splice(to, 0, item);
+async function loadList(kind) {
+  try {
+    const rows = await apiGet(`/api/admin/${kind}`);
+    state[kind] = Array.isArray(rows) ? rows : [];
+    state.failed[kind] = false;
+  } catch (error) {
+    state.failed[kind] = true;
+    if (error.status === 401) fail(error);
+    else state[kind] = [];
+  }
+  if (state.signedIn) render(kind);
+}
+
+async function loadCv() {
+  try {
+    state.cv = await apiGet('/api/cv');
+    state.cvFailed = false;
+  } catch {
+    state.cv = null;
+    state.cvFailed = true;
+  }
+  renderCV();
+}
+
+function loadAll() {
+  for (const kind of Object.keys(lists)) {
+    lists[kind].replaceChildren(el('li', { className: 'admin-state', text: COPY[kind].loading }));
+  }
+  return Promise.all([loadList('projects'), loadList('certificates'), loadCv()]);
+}
+
+async function move(kind, from, to) {
+  const previous = state[kind];
+  if (state.ordering.has(kind) || to < 0 || to >= previous.length || from === to) return;
+
+  const next = [...previous];
+  next.splice(to, 0, ...next.splice(from, 1));
+  state[kind] = next;
+  state.ordering.add(kind);
   render(kind);
-  toast(`Order updated. ${PREVIEW_NOTE}`);
+  try {
+    await apiSend('PUT', `/api/admin/${kind}/order`, { ids: next.map((item) => item.id) });
+    toast('Order saved.');
+  } catch (error) {
+    if (state[kind] === next) state[kind] = previous;
+    fail(error);
+  } finally {
+    state.ordering.delete(kind);
+    if (state.signedIn) render(kind);
+  }
 }
 
-function remove(kind, index) {
-  const item = state[kind][index];
+async function remove(kind, item) {
   if (!window.confirm(`Delete “${item.title}”? Visitors will no longer see it.`)) return;
-  state[kind].splice(index, 1);
-  render(kind);
-  toast(`Deleted. ${PREVIEW_NOTE}`);
+  try {
+    await apiSend('DELETE', `/api/admin/${kind}/${item.id}`);
+    await loadList(kind);
+    toast('Deleted.');
+  } catch (error) {
+    fail(error);
+  }
 }
 
 function enableDrag(kind) {
@@ -211,6 +303,19 @@ function enableDrag(kind) {
   });
 }
 
+/* Uploads */
+// The blob client hides the HTTP status, so a failed token request is checked against the session.
+async function uploadFile(pathname, file, clientPayload) {
+  try {
+    return await upload(pathname, file, { access: 'public', handleUploadUrl: '/api/uploads', clientPayload });
+  } catch {
+    const { signedIn } = await apiGet('/api/auth/session').catch(() => ({ signedIn: true }));
+    throw signedIn
+      ? new ApiError(0, 'The upload failed. Check your connection and try again.')
+      : new ApiError(401, 'Sign in required');
+  }
+}
+
 /* Editors */
 const editors = {
   projects: {
@@ -219,13 +324,15 @@ const editors = {
     noun: 'project',
     fields: ['title', 'purpose', 'stack', 'link'],
     urlField: 'link',
+    saveLabel: 'Save project',
   },
   certificates: {
     dialog: document.getElementById('certificateEditor'),
     form: document.getElementById('certificateForm'),
     noun: 'certificate',
-    fields: ['title', 'meta', 'verify'],
-    urlField: 'verify',
+    fields: ['title', 'issuerMeta', 'verifyUrl'],
+    urlField: 'verifyUrl',
+    saveLabel: 'Save certificate',
   },
 };
 
@@ -236,56 +343,96 @@ function setPreview(form, src) {
   else img.removeAttribute('src');
 }
 
-function openEditor(kind, index = null) {
+function discardPreviewUrl() {
+  if (state.editing?.previewUrl) URL.revokeObjectURL(state.editing.previewUrl);
+}
+
+function setSaving(kind, saving) {
+  const { dialog, form, saveLabel } = editors[kind];
+  for (const button of dialog.querySelectorAll('button, input')) button.disabled = saving;
+  form.querySelector('[type="submit"]').textContent = saving ? 'Saving…' : saveLabel;
+  state.editing.saving = saving;
+}
+
+function openEditor(kind, item = null) {
   const { dialog, form, noun, fields } = editors[kind];
-  const item = index === null ? {} : state[kind][index];
-  state.editing = { kind, index, image: item.image ?? null };
+  discardPreviewUrl();
+  state.editing = { kind, id: item?.id ?? null, imageUrl: item?.imageUrl ?? null, file: null, previewUrl: null, saving: false };
   form.reset();
-  dialog.querySelector('h2').textContent = index === null ? `Add ${noun}` : `Edit ${noun}`;
-  for (const name of fields) form.elements[name].value = item[name] ?? '';
-  setPreview(form, state.editing.image);
+  dialog.querySelector('h2').textContent = item ? `Edit ${noun}` : `Add ${noun}`;
+  for (const name of fields) form.elements[name].value = item?.[name] ?? '';
+  form.elements.published.checked = item ? item.published : true;
+  setPreview(form, publicLink(state.editing.imageUrl));
   form.querySelector('.form-error').textContent = '';
   dialog.showModal();
   form.elements.title.focus();
 }
 
-for (const [kind, { dialog, form, fields, urlField }] of Object.entries(editors)) {
-  dialog.querySelector('[data-close]').addEventListener('click', () => dialog.close());
+async function saveEditor(kind) {
+  const { dialog, form, fields, urlField } = editors[kind];
+  const error = form.querySelector('.form-error');
+  const { editing } = state;
+  const values = Object.fromEntries(fields.map((name) => [name, form.elements[name].value.trim()]));
 
-  form.elements.image.addEventListener('change', async () => {
+  if (!values.title) {
+    error.textContent = 'Add a title.';
+    form.elements.title.focus();
+    return;
+  }
+  if (values[urlField] && !publicLink(values[urlField])) {
+    error.textContent = 'Use a full public URL that starts with https://';
+    form.elements[urlField].focus();
+    return;
+  }
+
+  error.textContent = '';
+  setSaving(kind, true);
+  try {
+    const imageUrl = editing.file
+      ? (await uploadFile(uploadPathname(kind, values.title, editing.file), editing.file, 'image')).url
+      : editing.imageUrl;
+    const body = { ...values, [urlField]: values[urlField] || null, imageUrl, published: form.elements.published.checked };
+    await (editing.id === null
+      ? apiSend('POST', `/api/admin/${kind}`, body)
+      : apiSend('PUT', `/api/admin/${kind}/${editing.id}`, body));
+    await loadList(kind);
+    dialog.close();
+    toast('Saved.');
+  } catch (caught) {
+    if (caught.status === 401) fail(caught);
+    else error.textContent = caught.message;
+  } finally {
+    setSaving(kind, false);
+  }
+}
+
+for (const [kind, { dialog, form }] of Object.entries(editors)) {
+  dialog.querySelector('[data-close]').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('cancel', (event) => {
+    if (state.editing?.saving) event.preventDefault();
+  });
+  dialog.addEventListener('close', discardPreviewUrl);
+
+  form.elements.image.addEventListener('change', () => {
     const file = form.elements.image.files[0];
     const error = form.querySelector('.form-error');
     if (!file) return;
-    if (file.size > MAX_UPLOAD) {
-      error.textContent = 'Images must be 4 MB or smaller.';
+    const problem = checkImage(file);
+    if (problem) {
+      error.textContent = problem;
       form.elements.image.value = '';
       return;
     }
-    state.editing.image = await readAsDataURL(file);
-    setPreview(form, state.editing.image);
+    discardPreviewUrl();
+    state.editing.file = file;
+    state.editing.previewUrl = URL.createObjectURL(file);
+    setPreview(form, state.editing.previewUrl);
     error.textContent = '';
   });
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    const error = form.querySelector('.form-error');
-    const values = Object.fromEntries(fields.map((name) => [name, form.elements[name].value.trim()]));
-    if (!values.title) {
-      error.textContent = 'Add a title.';
-      form.elements.title.focus();
-      return;
-    }
-    if (values[urlField] && !publicLink(values[urlField])) {
-      error.textContent = 'Use a full public URL that starts with https://';
-      form.elements[urlField].focus();
-      return;
-    }
-    const item = { ...values, [urlField]: values[urlField] ? publicLink(values[urlField]) : null, image: state.editing.image };
-    if (state.editing.index === null) state[kind].push(item);
-    else state[kind][state.editing.index] = { ...state[kind][state.editing.index], ...item };
-    dialog.close();
-    render(kind);
-    toast(`Saved. ${PREVIEW_NOTE}`);
+    saveEditor(kind);
   });
 }
 
@@ -296,48 +443,55 @@ document.getElementById('addCertificate').addEventListener('click', () => openEd
 function renderCV() {
   const card = document.getElementById('cvCard');
   if (!state.cv) {
-    card.replaceChildren(el('p', { className: 'admin-state', text: 'No CV uploaded yet. Visitors won’t see a download link until you add one.' }));
+    const message = state.cvFailed
+      ? 'Couldn’t load the CV. Check your connection and reload.'
+      : 'No CV uploaded yet. Visitors won’t see a download link until you add one.';
+    card.replaceChildren(el('p', { className: 'admin-state', text: message }));
     return;
   }
-  const open = el('button', { className: 'quiet-link', text: 'Open', attrs: { type: 'button' } });
-  open.addEventListener('click', () => openPdf(state.cv.data));
+  const href = publicLink(state.cv.fileUrl);
   const uploaded = state.cv.uploadedAt
     ? new Date(state.cv.uploadedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
     : '';
   card.replaceChildren(
     el('div', { className: 'cv-meta' }, [
-      el('p', { className: 'admin-title', text: state.cv.name }),
+      el('p', { className: 'admin-title', text: state.cv.fileName }),
       uploaded ? el('p', { className: 'admin-detail', text: `Uploaded ${uploaded}` }) : null,
     ]),
-    open,
+    href ? el('a', { className: 'quiet-link', text: 'Open', attrs: { href, target: '_blank', rel: 'noopener' } }) : null,
   );
 }
 
-document.getElementById('cvInput').addEventListener('change', async (event) => {
-  const file = event.target.files[0];
-  event.target.value = '';
-  if (!file) return;
-  if (file.type !== 'application/pdf') {
-    toast('The CV must be a PDF.');
-    return;
-  }
-  if (file.size > MAX_UPLOAD) {
-    toast('The CV must be 4 MB or smaller.');
-    return;
-  }
-  state.cv = { name: file.name, data: await readAsDataURL(file), uploadedAt: new Date().toISOString() };
-  renderCV();
-  toast(`CV replaced. ${PREVIEW_NOTE}`);
-});
+const cvInput = document.getElementById('cvInput');
+const cvLabel = document.getElementById('cvLabel');
 
-async function load() {
-  state.loaded = true;
-  const [projects, certificates, cv] = await Promise.all([getProjects(), getCertificates(), getCV()]);
-  Object.assign(state, { projects, certificates, cv: cv && { name: cv.fileName, data: cv.fileUrl, uploadedAt: cv.uploadedAt } });
-  render('projects');
-  render('certificates');
-  renderCV();
+function setCvBusy(busy) {
+  cvInput.disabled = busy;
+  cvLabel.textContent = busy ? 'Uploading…' : 'Replace CV';
 }
+
+cvInput.addEventListener('change', async () => {
+  const file = cvInput.files[0];
+  cvInput.value = '';
+  if (!file) return;
+  const problem = checkCv(file);
+  if (problem) {
+    toast(problem);
+    return;
+  }
+  setCvBusy(true);
+  try {
+    const blob = await uploadFile(uploadPathname('cv', null, file), file, 'cv');
+    await apiSend('PUT', '/api/admin/cv', { fileUrl: blob.url, fileName: file.name });
+    await loadCv();
+    toast('CV replaced.');
+  } catch (error) {
+    fail(error);
+  } finally {
+    setCvBusy(false);
+  }
+});
 
 enableDrag('projects');
 enableDrag('certificates');
+restoreSession();
