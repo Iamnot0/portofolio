@@ -15,7 +15,7 @@ describe('test db', () => {
     );
     assert.deepEqual(
       rows.map((r) => r.table_name),
-      ['contact_submissions', 'login_attempts', 'portfolio_certificates', 'portfolio_cv', 'portfolio_projects'],
+      ['admin_totp_state', 'contact_submissions', 'login_attempts', 'portfolio_certificates', 'portfolio_cv', 'portfolio_projects'],
     );
   });
 

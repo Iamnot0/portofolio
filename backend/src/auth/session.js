@@ -5,7 +5,7 @@ export const SESSION_COOKIE = 'clay_session';
 const SESSION_SECONDS = 8 * 60 * 60;
 const SUBJECT = 'admin';
 
-const cookieOptions = { httpOnly: true, secure: true, sameSite: 'strict', path: '/api' };
+const cookieOptions = { httpOnly: true, secure: true, sameSite: 'strict', path: '/' };
 const key = (env) => new TextEncoder().encode(env.SESSION_SECRET);
 
 export function issueSession({ env, clock }) {

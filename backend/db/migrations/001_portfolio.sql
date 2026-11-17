@@ -35,6 +35,11 @@ create table if not exists login_attempts (
   attempted_at timestamptz default now()
 );
 
+create table if not exists admin_totp_state (
+  id int primary key check (id = 1),
+  last_step bigint not null
+);
+
 create table if not exists contact_submissions (
   id serial primary key,
   ip text,

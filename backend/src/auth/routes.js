@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { HttpError, asyncRoute } from '../http.js';
 import { sameEmail, verifyPassword } from './password.js';
-import { clearFailures, isLockedOut, recordFailure } from './rate-limit.js';
+import { clearAttempts, registerAttempt } from './rate-limit.js';
 import { clearSessionCookie, issueSession, readSession, setSessionCookie } from './session.js';
-import { verifyTotp } from './totp.js';
+import { claimTotpStep, totpStep } from './totp.js';
 
 const MAX_FIELD_LENGTH = 1024;
 
@@ -17,7 +17,7 @@ export function authRouter(ctx) {
   router.post('/login', asyncRoute(async (req, res) => {
     const ip = clientIp(req);
     const now = clock();
-    if (await isLockedOut(db, ip, now)) {
+    if ((await registerAttempt(db, ip, now)).locked) {
       throw new HttpError(429, 'Too many attempts. Try again in 15 minutes.');
     }
 
@@ -25,17 +25,22 @@ export function authRouter(ctx) {
     const password = text(req.body?.password);
     const code = text(req.body?.code);
     // Evaluate every factor so a wrong field costs the same as a wrong password.
-    const checks = [
-      sameEmail(email, env.ADMIN_EMAIL),
-      await verifyPassword(password, env.ADMIN_PASSWORD_HASH),
-      verifyTotp(env.ADMIN_TOTP_SECRET, code, now),
-    ];
-    if (!checks.every(Boolean)) {
-      await recordFailure(db, ip, now);
-      throw new HttpError(401, 'Email, password or code is incorrect');
-    }
+    const emailOk = sameEmail(email, env.ADMIN_EMAIL);
+    const passwordOk = await verifyPassword(password, env.ADMIN_PASSWORD_HASH);
+    const step = totpStep(env.ADMIN_TOTP_SECRET, code, now);
 
-    await clearFailures(db, ip);
+    // The code is only spent, and the attempts only cleared, when every factor passed.
+    const signedIn =
+      emailOk &&
+      passwordOk &&
+      step !== null &&
+      (await db.transaction(async (query) => {
+        const claimed = await claimTotpStep(query, step);
+        if (claimed) await clearAttempts(query, ip);
+        return claimed;
+      }));
+    if (!signedIn) throw new HttpError(401, 'Email, password or code is incorrect');
+
     setSessionCookie(res, await issueSession(ctx));
     res.json({ signedIn: true });
   }));

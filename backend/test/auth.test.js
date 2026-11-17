@@ -98,6 +98,7 @@ describe('admin sign-in', () => {
   beforeEach(async () => {
     now = START;
     await app.db.query('delete from login_attempts');
+    await app.db.query('delete from admin_totp_state');
   });
 
   const post = (path, body, headers = {}) =>
@@ -117,6 +118,7 @@ describe('admin sign-in', () => {
     for (const attribute of ['HttpOnly', 'Secure', 'SameSite=Strict', `Max-Age=${8 * 3600}`]) {
       assert.ok(setCookie.includes(attribute), `missing ${attribute} in ${setCookie}`);
     }
+    assert.match(setCookie, /; Path=\/(;|$)/);
     assert.deepEqual((await session(cookieOf(res))).body, { signedIn: true });
   });
 
@@ -190,7 +192,51 @@ describe('admin sign-in', () => {
     for (let round = 0; round < 2; round += 1) {
       for (let i = 0; i < 4; i += 1) await login({ password: 'wrong' });
       assert.equal((await login()).status, 200);
+      now = new Date(now.getTime() + 60_000);
     }
+  });
+
+  it('holds the cap under concurrent attempts', async () => {
+    const attempts = await Promise.all(Array.from({ length: 8 }, () => login({ password: 'wrong' })));
+    const statuses = attempts.map((res) => res.status);
+    assert.ok(statuses.filter((status) => status === 401).length <= 5, `got ${statuses}`);
+    assert.equal(statuses.filter((status) => status === 429).length, 8 - statuses.filter((s) => s === 401).length);
+    for (const res of attempts.filter((r) => r.status === 429)) assert.deepEqual(res.body, LOCKED_OUT);
+  });
+
+  it('forgets attempts that have left the window', async () => {
+    const old = new Date(START.getTime() - HOUR).toISOString();
+    for (let i = 0; i < 5; i += 1) {
+      await app.db.query("insert into login_attempts (ip, attempted_at) values ('::ffff:127.0.0.1', $1)", [old]);
+    }
+    assert.equal((await login({ password: 'wrong' })).status, 401);
+    const [{ rows }] = await app.db.query('select count(*)::int as rows from login_attempts');
+    assert.equal(rows, 1);
+  });
+
+  it('refuses to reuse a code that already signed in', async () => {
+    const code = codeAt(now);
+    assert.equal((await login({ code })).status, 200);
+    const replay = await login({ code });
+    assert.equal(replay.status, 401);
+    assert.deepEqual(replay.body, BAD_CREDENTIALS);
+    assert.equal(replay.headers.get('set-cookie'), null);
+  });
+
+  it('refuses an earlier code after a later one signed in', async () => {
+    assert.equal((await login({ code: codeAt(new Date(now.getTime() + 30_000)) })).status, 200);
+    assert.equal((await login({ code: codeAt(now) })).status, 401);
+  });
+
+  it('accepts the next code after a successful sign-in', async () => {
+    assert.equal((await login()).status, 200);
+    assert.equal((await login({ code: codeAt(new Date(now.getTime() + 30_000)) })).status, 200);
+  });
+
+  it('does not burn a code on a failed attempt', async () => {
+    const code = codeAt(now);
+    assert.equal((await login({ code, password: 'wrong' })).status, 401);
+    assert.equal((await login({ code })).status, 200);
   });
 
   it('reports no session without a cookie, with junk, or with a forged token', async () => {
@@ -219,6 +265,7 @@ describe('admin sign-in', () => {
     for (const attribute of ['Max-Age=0', 'HttpOnly', 'Secure', 'SameSite=Strict']) {
       assert.ok(setCookie.includes(attribute), `missing ${attribute} in ${setCookie}`);
     }
+    assert.match(setCookie, /; Path=\/(;|$)/);
   });
 });
 
