@@ -3,6 +3,8 @@ import { ApiError, apiGet, apiSend } from './api.js';
 const UNREACHABLE = 'Message could not be sent. Email clay.net@proton.me directly.';
 // The server drops forms sent within 3 s of the token being issued; the extra half second absorbs latency.
 const MIN_WAIT_MS = 3500;
+// The server accepts a token for 24 h; refreshing well inside that keeps long-open tabs from being dropped.
+const MAX_TOKEN_AGE_MS = 60 * 60 * 1000;
 
 export async function submitContact(fields, fetchImpl = fetch) {
   try {
@@ -23,7 +25,10 @@ export function createContactSession({ fetchImpl = fetch, now = Date.now, wait =
 
   const requestToken = () => {
     pending ??= apiGet('/api/contact/start', fetchImpl)
-      .then(({ token }) => { issued = { token, at: now() }; })
+      .then((body) => {
+        if (typeof body?.token !== 'string' || !body.token) throw new TypeError('Start response has no token');
+        issued = { token: body.token, at: now() };
+      })
       .catch(() => {})
       .finally(() => { pending = null; });
     return pending;
@@ -35,6 +40,7 @@ export function createContactSession({ fetchImpl = fetch, now = Date.now, wait =
     },
 
     async submit(fields) {
+      if (issued && now() - issued.at > MAX_TOKEN_AGE_MS) issued = null;
       if (!issued) await requestToken();
       if (!issued) await requestToken();
       if (!issued) return { ok: false, error: UNREACHABLE };

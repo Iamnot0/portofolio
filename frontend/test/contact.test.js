@@ -165,4 +165,57 @@ describe('createContactSession', () => {
     await session.submit(visitorFields);
     assert.equal(calls.filter((call) => call.url === '/api/contact/start').length, 1);
   });
+
+  it('fetches a fresh token when the held one is older than an hour', async () => {
+    const clk = clock();
+    const { calls, fetchImpl } = server(clk, { tokens: ['stale-token', 'fresh-token'] });
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    session.begin();
+    await settle();
+    clk.state.time += 60 * 60 * 1000 + 1;
+    await session.submit(visitorFields);
+
+    assert.equal(calls.filter((call) => call.url === '/api/contact/start').length, 2);
+    const post = calls.find((call) => call.url === '/api/contact');
+    assert.equal(JSON.parse(post.init.body).startToken, 'fresh-token');
+    assert.deepEqual(clk.state.waits, [3500]);
+    assert.equal(post.at - calls.filter((call) => call.url === '/api/contact/start')[1].at, 3500);
+  });
+
+  it('keeps a token that is under an hour old', async () => {
+    const clk = clock();
+    const { calls, fetchImpl } = server(clk, { tokens: ['token-1', 'token-2'] });
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    session.begin();
+    await settle();
+    clk.state.time += 59 * 60 * 1000;
+    await session.submit(visitorFields);
+    assert.equal(calls.filter((call) => call.url === '/api/contact/start').length, 1);
+  });
+
+  it('treats a 200 without a string token as a failed fetch', async () => {
+    const clk = clock();
+    const calls = [];
+    const fetchImpl = async (url) => {
+      calls.push(url);
+      return new Response(JSON.stringify(url === '/api/contact/start' ? { token: 42 } : { ok: true }), { status: 200 });
+    };
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    session.begin();
+    assert.deepEqual(await session.submit(visitorFields), { ok: false, error: EMAIL_FALLBACK });
+    assert.equal(calls.filter((url) => url === '/api/contact/start').length, 2);
+    assert.equal(calls.includes('/api/contact'), false);
+  });
+
+  it('recovers when the retry after a malformed token returns a good one', async () => {
+    const clk = clock();
+    const bodies = [{}, { token: 'good-token' }];
+    const fetchImpl = async (url, init) => {
+      if (url === '/api/contact/start') return new Response(JSON.stringify(bodies.shift()), { status: 200 });
+      assert.equal(JSON.parse(init.body).startToken, 'good-token');
+      return new Response(JSON.stringify({ ok: true }), { status: 202 });
+    };
+    const session = createContactSession({ fetchImpl, now: clk.now, wait: clk.wait });
+    assert.deepEqual(await session.submit(visitorFields), { ok: true });
+  });
 });

@@ -797,6 +797,8 @@ a.card-inner .card-cta {
 
 @media (max-width: 760px) {
   .nav {
+    /* Opaque enough that form fields scrolling underneath never compete with the links. */
+    background: color-mix(in srgb, var(--bg) 94%, transparent);
     display: flex;
     flex-wrap: wrap;
     align-items: center;

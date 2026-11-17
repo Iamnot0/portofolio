@@ -240,6 +240,7 @@ export async function createScene(canvas, { reduceMotion }) {
   const codeBounds = boundsOf(code);
   const orbitBounds = boundsOf(orbit);
   const phoneStages = { hero: null, contact: null };
+  const contactSection = document.getElementById('contact');
 
   const state = { ...STAGES[0] };
   const pointer = { ndc: new Vector2(), inside: false, tiltX: 0, tiltY: 0 };
@@ -268,8 +269,10 @@ export async function createScene(canvas, { reduceMotion }) {
   }
 
   // Phones: fit a formation into the free band between two page landmarks, measured from the live layout.
+  const worldPerPixel = () => (2 * CAMERA_START_Z * Math.tan(MathUtils.degToRad(CAMERA_FOV / 2))) / window.innerHeight;
+
   function fitToBand(bounds, stage, topPx, bottomPx) {
-    const unitsPerPx = (2 * CAMERA_START_Z * Math.tan(MathUtils.degToRad(CAMERA_FOV / 2))) / window.innerHeight;
+    const unitsPerPx = worldPerPixel();
     const bandPx = Math.max(bottomPx - topPx, 1);
     const widthPx = window.innerWidth - 2 * PHONE_CLEARANCE;
     const scale = PERSPECTIVE_ALLOWANCE * Math.min((bandPx * unitsPerPx) / bounds.height, (widthPx * unitsPerPx) / bounds.width);
@@ -328,7 +331,9 @@ export async function createScene(canvas, { reduceMotion }) {
     pointer.tiltX = damp(pointer.tiltX, pointer.inside ? pointer.ndc.y * 0.2 : 0, 2.5, step);
     pointer.tiltY = damp(pointer.tiltY, pointer.inside ? pointer.ndc.x * 0.3 : 0, 2.5, step);
 
-    group.position.set(state.x, state.y, camera.position.z - CAMERA_START_Z + state.z);
+    // On phones the orbit is attached to the contact section: past its landing position it scrolls away with the heading.
+    const contactLift = narrowQuery.matches ? Math.max(0, -contactSection.getBoundingClientRect().top) * worldPerPixel() : 0;
+    group.position.set(state.x, state.y + contactLift, camera.position.z - CAMERA_START_Z + state.z);
     group.scale.setScalar(state.scale);
     // The gear turns while the founder section is in view; other shapes stay upright.
     const gearWeight = Math.max(0, 1 - Math.abs(stage - 2));
