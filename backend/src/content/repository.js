@@ -11,6 +11,8 @@ async function applyOrder(db, ids, { countAll, assignOrder }) {
   });
 }
 
+const splitPrevious = ({ previousImageUrl, ...row }) => ({ row, previousImageUrl });
+
 export function projectsRepository(db) {
   return {
     listPublished: () =>
@@ -38,16 +40,18 @@ export function projectsRepository(db) {
       return row;
     },
 
+    // The previous image URL lets the caller delete a superseded Blob.
     async update(id, { title, purpose, stack, link, imageUrl, published }) {
-      const [row] = await db.query(
-        `UPDATE portfolio_projects
+      const [result] = await db.query(
+        `UPDATE portfolio_projects AS t
          SET title = $2, purpose = $3, stack = $4, link = $5, image_url = $6, published = $7, updated_at = now()
-         WHERE id = $1
-         RETURNING id, title, purpose, stack, link, image_url AS "imageUrl",
-                   published, display_order AS "displayOrder"`,
+         FROM (SELECT id, image_url FROM portfolio_projects WHERE id = $1 FOR UPDATE) AS previous
+         WHERE t.id = previous.id
+         RETURNING t.id, t.title, t.purpose, t.stack, t.link, t.image_url AS "imageUrl",
+                   t.published, t.display_order AS "displayOrder", previous.image_url AS "previousImageUrl"`,
         [id, title, purpose, stack, link, imageUrl, published],
       );
-      return row ?? null;
+      return result ? splitPrevious(result) : null;
     },
 
     async remove(id) {
@@ -97,16 +101,19 @@ export function certificatesRepository(db) {
       return row;
     },
 
+    // The previous image URL lets the caller delete a superseded Blob.
     async update(id, { title, issuerMeta, verifyUrl, imageUrl, published }) {
-      const [row] = await db.query(
-        `UPDATE portfolio_certificates
+      const [result] = await db.query(
+        `UPDATE portfolio_certificates AS t
          SET title = $2, issuer_meta = $3, verify_url = $4, image_url = $5, published = $6, updated_at = now()
-         WHERE id = $1
-         RETURNING id, title, issuer_meta AS "issuerMeta", verify_url AS "verifyUrl", image_url AS "imageUrl",
-                   published, display_order AS "displayOrder"`,
+         FROM (SELECT id, image_url FROM portfolio_certificates WHERE id = $1 FOR UPDATE) AS previous
+         WHERE t.id = previous.id
+         RETURNING t.id, t.title, t.issuer_meta AS "issuerMeta", t.verify_url AS "verifyUrl",
+                   t.image_url AS "imageUrl", t.published, t.display_order AS "displayOrder",
+                   previous.image_url AS "previousImageUrl"`,
         [id, title, issuerMeta, verifyUrl, imageUrl, published],
       );
-      return row ?? null;
+      return result ? splitPrevious(result) : null;
     },
 
     async remove(id) {

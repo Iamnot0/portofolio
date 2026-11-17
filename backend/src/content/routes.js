@@ -2,7 +2,15 @@ import { Router } from 'express';
 import { HttpError, asyncRoute } from '../http.js';
 import { requireAdmin } from '../auth/session.js';
 import { certificatesRepository, cvRepository, projectsRepository } from './repository.js';
-import { certificateSchema, cvSchema, orderSchema, parseBody, projectSchema } from './schemas.js';
+import {
+  certificateCreateSchema,
+  certificateUpdateSchema,
+  cvSchema,
+  orderSchema,
+  parseBody,
+  projectCreateSchema,
+  projectUpdateSchema,
+} from './schemas.js';
 
 const MAX_ID = 2_147_483_647;
 
@@ -26,15 +34,25 @@ export function publicContentRouter({ db }) {
 }
 
 export function adminContentRouter(ctx) {
-  const { db } = ctx;
+  const { db, blob } = ctx;
   const router = Router();
   router.use(requireAdmin(ctx));
 
-  const collection = (path, repository, schema) => {
+  // Storage cleanup never fails the request: the row is already saved, and a leftover Blob only costs space.
+  const discardBlob = async (url) => {
+    if (!url) return;
+    try {
+      await blob.del(url);
+    } catch (error) {
+      console.error(`Blob cleanup failed for ${url}`, error);
+    }
+  };
+
+  const collection = (path, repository, { createSchema, updateSchema }) => {
     router.get(path, asyncRoute(async (req, res) => res.json(await repository.listAll())));
 
     router.post(path, asyncRoute(async (req, res) => {
-      res.status(201).json(await repository.create(parseBody(schema, req.body)));
+      res.status(201).json(await repository.create(parseBody(createSchema, req.body)));
     }));
 
     // Registered before `/:id` so "order" is never read as an id.
@@ -45,24 +63,34 @@ export function adminContentRouter(ctx) {
 
     router.put(`${path}/:id`, asyncRoute(async (req, res) => {
       const id = idParam(req);
-      const row = await repository.update(id, parseBody(schema, req.body));
-      if (!row) throw new HttpError(404, 'Not found');
+      const updated = await repository.update(id, parseBody(updateSchema, req.body));
+      if (!updated) throw new HttpError(404, 'Not found');
+      const { row, previousImageUrl } = updated;
+      if (previousImageUrl !== row.imageUrl) await discardBlob(previousImageUrl);
       res.json(row);
     }));
 
     router.delete(`${path}/:id`, asyncRoute(async (req, res) => {
       const removed = await repository.remove(idParam(req));
       if (!removed) throw new HttpError(404, 'Not found');
+      await discardBlob(removed.imageUrl);
       res.status(204).end();
     }));
   };
 
-  collection('/projects', projectsRepository(db), projectSchema);
-  collection('/certificates', certificatesRepository(db), certificateSchema);
+  collection('/projects', projectsRepository(db), {
+    createSchema: projectCreateSchema,
+    updateSchema: projectUpdateSchema,
+  });
+  collection('/certificates', certificatesRepository(db), {
+    createSchema: certificateCreateSchema,
+    updateSchema: certificateUpdateSchema,
+  });
 
   const cv = cvRepository(db);
   router.put('/cv', asyncRoute(async (req, res) => {
-    const { cv: current } = await cv.replace(parseBody(cvSchema, req.body));
+    const { cv: current, previousFileUrl } = await cv.replace(parseBody(cvSchema, req.body));
+    if (previousFileUrl !== current.fileUrl) await discardBlob(previousFileUrl);
     res.json(current);
   }));
 

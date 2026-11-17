@@ -17,6 +17,26 @@ export async function createTestDb() {
   };
 }
 
+// Stands in for the Vercel Blob client: runs the route's token callback and records every call.
+export function fakeBlob() {
+  const blob = {
+    uploads: [],
+    deleted: [],
+    failDeletes: false,
+    async handleUpload(request, body, options) {
+      const { pathname, clientPayload, multipart } = body.payload;
+      const tokenOptions = await options.onBeforeGenerateToken(pathname, clientPayload, multipart);
+      blob.uploads.push({ pathname, clientPayload, tokenOptions });
+      return { type: body.type, clientToken: 'fake-client-token' };
+    },
+    async del(url) {
+      blob.deleted.push(url);
+      if (blob.failDeletes) throw new Error('Blob store unavailable');
+    },
+  };
+  return blob;
+}
+
 export async function serve(app) {
   const server = app.listen(0);
   await new Promise((resolve) => server.once('listening', resolve));

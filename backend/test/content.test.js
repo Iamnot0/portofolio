@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { issueSession } from '../src/auth/session.js';
 import { certificatesRepository, cvRepository, projectsRepository } from '../src/content/repository.js';
-import { testApp } from './helpers.js';
+import { fakeBlob, testApp } from './helpers.js';
 
 const env = { SESSION_SECRET: randomBytes(32).toString('hex') };
 const clock = () => new Date();
@@ -29,7 +29,7 @@ describe('content API', () => {
       )));
 
   before(async () => {
-    app = await testApp({ env, clock });
+    app = await testApp({ env, clock, blob: fakeBlob() });
     cookie = `clay_session=${await issueSession({ env, clock })}`;
   });
   after(() => app.close());
