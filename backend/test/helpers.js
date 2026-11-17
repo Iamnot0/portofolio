@@ -22,6 +22,7 @@ export async function serve(app) {
   await new Promise((resolve) => server.once('listening', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
   return {
+    origin,
     async request(path, { method = 'GET', body, headers = {} } = {}) {
       const res = await fetch(origin + path, {
         method,
@@ -41,6 +42,7 @@ export async function testApp(overrides = {}) {
   const server = await serve(app);
   return {
     db,
+    origin: server.origin,
     request: server.request,
     close: async () => {
       await server.close();

@@ -29,13 +29,17 @@ describe('app foundation', () => {
   });
 
   it('rejects malformed JSON with a 400', async () => {
-    const res = await app.request('/api/health', { method: 'POST', body: '{bad' });
+    const res = await app.request('/api/health', { method: 'POST', body: '{bad', headers: { origin: app.origin } });
     assert.equal(res.status, 400);
     assert.deepEqual(res.body, { error: 'Invalid JSON' });
   });
 
   it('rejects oversized bodies with a 413', async () => {
-    const res = await app.request('/api/health', { method: 'POST', body: { pad: 'x'.repeat(5 * 1024 * 1024) } });
+    const res = await app.request('/api/health', {
+      method: 'POST',
+      body: { pad: 'x'.repeat(5 * 1024 * 1024) },
+      headers: { origin: app.origin },
+    });
     assert.equal(res.status, 413);
     assert.deepEqual(res.body, { error: 'Request body too large' });
   });
