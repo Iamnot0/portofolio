@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vercel
+.env*
+.remember/
+*.log
+.DS_Store
+.playwright-mcp/
+development/prototype-3d/dist/
+.vite/

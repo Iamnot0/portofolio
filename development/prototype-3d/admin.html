@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Admin · Clay</title>
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&family=Schibsted+Grotesk:wght@400..600&display=swap">
+  <link rel="stylesheet" href="/src/style.css">
+  <link rel="stylesheet" href="/src/admin.css">
+  <script>
+    try {
+      const saved = localStorage.getItem('theme');
+      const dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    } catch {
+      document.documentElement.dataset.theme = 'light';
+    }
+  </script>
+</head>
+<body class="admin">
+  <p class="preview-banner">Preview build. Sign-in and saving are wired to the server in the real build. Nothing here changes your live site.</p>
+
+  <main class="login" id="login">
+    <div class="login-card">
+      <h1>Admin sign in</h1>
+      <p class="login-note">In this preview any email and password opens the dashboard.</p>
+      <form id="loginForm" novalidate>
+        <label class="field">
+          <span>Email</span>
+          <input type="email" name="email" autocomplete="username" placeholder="email@example.com" required>
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <p class="form-error" id="loginError" role="alert"></p>
+        <button class="button" type="submit">Sign in</button>
+      </form>
+    </div>
+  </main>
+
+  <div class="dashboard" id="dashboard" hidden>
+    <header class="admin-bar">
+      <div class="admin-brand">
+        <a class="brand" href="/">Clay</a>
+        <span class="admin-label">Admin</span>
+      </div>
+      <nav class="tabs" role="tablist" aria-label="Content">
+        <button type="button" role="tab" id="tab-projects" aria-controls="panel-projects" aria-selected="true">Projects</button>
+        <button type="button" role="tab" id="tab-certificates" aria-controls="panel-certificates" aria-selected="false" tabindex="-1">Certificates</button>
+        <button type="button" role="tab" id="tab-cv" aria-controls="panel-cv" aria-selected="false" tabindex="-1">CV</button>
+      </nav>
+      <div class="admin-actions">
+        <a class="quiet-link" href="/" target="_blank" rel="noopener">View site</a>
+        <button class="theme-toggle" type="button" id="themeToggle" aria-pressed="false">Dark</button>
+        <button class="quiet-link" type="button" id="signOut">Sign out</button>
+      </div>
+    </header>
+
+    <section class="panel" id="panel-projects" role="tabpanel" aria-labelledby="tab-projects">
+      <div class="panel-head">
+        <div>
+          <h2>Projects</h2>
+          <p class="panel-note">Drag to set the order visitors fly through on the Work section.</p>
+        </div>
+        <button class="button" type="button" id="addProject">Add project</button>
+      </div>
+      <ol class="admin-list" id="projectList">
+        <li class="admin-state">Loading projects…</li>
+      </ol>
+    </section>
+
+    <section class="panel" id="panel-certificates" role="tabpanel" aria-labelledby="tab-certificates" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>Certificates</h2>
+          <p class="panel-note">Shown in this order under Certifications. Add a verify link when the issuer provides one.</p>
+        </div>
+        <button class="button" type="button" id="addCertificate">Add certificate</button>
+      </div>
+      <ol class="admin-list" id="certificateList">
+        <li class="admin-state">Loading certificates…</li>
+      </ol>
+    </section>
+
+    <section class="panel" id="panel-cv" role="tabpanel" aria-labelledby="tab-cv" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>CV</h2>
+          <p class="panel-note">Visitors download this from the Contact section. PDF only, up to 4 MB.</p>
+        </div>
+      </div>
+      <div class="cv-card" id="cvCard">
+        <p class="admin-state">Loading the current CV…</p>
+      </div>
+      <label class="button button--quiet file-button">
+        Replace CV
+        <input type="file" id="cvInput" accept="application/pdf">
+      </label>
+    </section>
+  </div>
+
+  <dialog class="editor" id="projectEditor" aria-labelledby="projectEditorTitle">
+    <form method="dialog" id="projectForm" novalidate>
+      <h2 id="projectEditorTitle">Add project</h2>
+      <label class="field">
+        <span>Title</span>
+        <input name="title" required maxlength="80">
+      </label>
+      <label class="field">
+        <span>What it is</span>
+        <textarea name="purpose" rows="3" maxlength="240" placeholder="One or two sentences visitors read on the card."></textarea>
+      </label>
+      <label class="field">
+        <span>Tech stack</span>
+        <input name="stack" maxlength="160" placeholder="Next.js · PostgreSQL · Vercel">
+      </label>
+      <label class="field">
+        <span>Live URL</span>
+        <input name="link" type="url" placeholder="https://example.com">
+      </label>
+      <div class="field">
+        <span>Screenshot</span>
+        <img class="editor-preview" alt="" hidden>
+        <label class="button button--quiet file-button">
+          Choose image
+          <input type="file" name="image" accept="image/png,image/jpeg,image/webp">
+        </label>
+      </div>
+      <p class="form-error" role="alert"></p>
+      <div class="editor-actions">
+        <button class="button button--quiet" type="button" data-close>Cancel</button>
+        <button class="button" type="submit">Save project</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="editor" id="certificateEditor" aria-labelledby="certificateEditorTitle">
+    <form method="dialog" id="certificateForm" novalidate>
+      <h2 id="certificateEditorTitle">Add certificate</h2>
+      <label class="field">
+        <span>Title</span>
+        <input name="title" required maxlength="120">
+      </label>
+      <label class="field">
+        <span>Issuer and date</span>
+        <input name="meta" maxlength="80" placeholder="Red Team Leaders · Jul 2026">
+      </label>
+      <label class="field">
+        <span>Verify link</span>
+        <input name="verify" type="url" placeholder="https://issuer.example/verify/…">
+      </label>
+      <div class="field">
+        <span>Certificate image</span>
+        <img class="editor-preview" alt="" hidden>
+        <label class="button button--quiet file-button">
+          Choose image
+          <input type="file" name="image" accept="image/png,image/jpeg,image/webp">
+        </label>
+      </div>
+      <p class="form-error" role="alert"></p>
+      <div class="editor-actions">
+        <button class="button button--quiet" type="button" data-close>Cancel</button>
+        <button class="button" type="submit">Save certificate</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/src/admin.js"></script>
+</body>
+</html>

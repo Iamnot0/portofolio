@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clay · Aung Kaung Khant</title>
+  <meta name="description" content="Aung Kaung Khant (Clay), full stack engineer building agentic AI workflows into enterprise systems, and founder of MR ROBOT by Optimus Technica in Yangon.">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&family=Schibsted+Grotesk:wght@400..600&display=swap">
+  <link rel="stylesheet" href="/src/style.css">
+  <script>
+    try {
+      const saved = localStorage.getItem('theme');
+      const dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    } catch {
+      document.documentElement.dataset.theme = 'light';
+    }
+  </script>
+</head>
+<body>
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <a class="skip" href="#experience">Skip to content</a>
+
+  <header class="nav">
+    <a class="brand" href="#top">Clay</a>
+    <nav aria-label="Sections">
+      <a href="#experience">Experience</a>
+      <a href="#work">Work</a>
+      <a href="#founder">Founder</a>
+      <a href="#certifications">Certifications</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <button class="theme-toggle" type="button" id="themeToggle" aria-pressed="false">Dark</button>
+  </header>
+
+  <main>
+    <section class="hero" id="top" data-stage>
+      <div class="hero-copy">
+        <p class="hero-lede">Full stack engineer. I build enterprise systems and the agentic AI workflows that run inside them.</p>
+        <div class="hero-byline">
+          <img class="hero-portrait" src="/clay.jpg" alt="Aung Kaung Khant" width="600" height="600" decoding="async">
+          <p class="hero-meta">Aung Kaung Khant · Full Stack Engineer at SparksBM · Founder of MR ROBOT · Yangon</p>
+        </div>
+      </div>
+      <h1 class="hero-title" aria-label="Clay">Clay</h1>
+    </section>
+
+    <section class="experience" id="experience">
+      <div class="section-head">
+        <h2>Experience</h2>
+      </div>
+      <ol class="timeline">
+        <li class="role">
+          <p class="role-when">Dec 2025 to Present</p>
+          <div class="role-body">
+            <h3>Full Stack Engineer</h3>
+            <p class="role-where">SparksBM Investment · Singapore, remote</p>
+            <p>Own two enterprise platforms at once, a multi-tenant SaaS and an AI-integrated ecosystem, built on Java Spring Boot, modern JavaScript and Google Cloud, including all DevOps. Designed agentic AI workflows inside ERP integration pipelines that automate cross-system data flows.</p>
+            <p class="role-tags">Agentic AI · Java Spring Boot · Python · Google Cloud · DevOps</p>
+          </div>
+        </li>
+        <li class="role">
+          <p class="role-when">Jun 2025 to Mar 2026</p>
+          <div class="role-body">
+            <h3>System Administrator</h3>
+            <p class="role-where">USIRD Inc · New York, remote</p>
+            <p>Maintained and improved the systems that keep asylum clients informed and supported, from full-stack development to direct client communication.</p>
+            <p class="role-tags">Linux · Full stack · Technical writing</p>
+          </div>
+        </li>
+        <li class="role">
+          <p class="role-when">Mar 2025 to Jun 2025</p>
+          <div class="role-body">
+            <h3>IT Support Specialist</h3>
+            <p class="role-where">Hotel Grand United · six branches</p>
+            <p>Ran infrastructure across every branch: cabling, door-lock systems, OpenVox telephony and CCTV, with remote troubleshooting and status reporting.</p>
+            <p class="role-tags">Linux · Networking · Technical writing</p>
+          </div>
+        </li>
+        <li class="role">
+          <p class="role-when">Jan 2022 to Aug 2023</p>
+          <div class="role-body">
+            <h3>IT Technician</h3>
+            <p class="role-where">Local Hospital (STC) · Meiktila</p>
+            <p class="role-tags">Technical support · Linux</p>
+          </div>
+        </li>
+      </ol>
+      <div class="education">
+        <p class="label">Education</p>
+        <p class="education-degree">Bachelor’s degree, Computer Science</p>
+        <p class="role-where">University of the People · Sep 2025 to Present</p>
+      </div>
+    </section>
+
+    <section class="work" id="work" data-stage>
+      <div class="section-head">
+        <h2>Selected work</h2>
+      </div>
+      <div class="work-stage">
+        <ol class="work-list" id="workList">
+          <li class="state">Loading projects from the live site…</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="founder" id="founder" data-stage>
+      <img class="founder-photo" src="/founder.jpg" alt="Aung Kaung Khant in front of a red-brick colonial building in Yangon" width="800" height="600" loading="lazy" decoding="async">
+      <div class="founder-copy">
+        <img class="founder-badge" src="/mr-robot-badge.png" alt="MR ROBOT badge: Refining Operations, Building Optimus Technica" width="480" height="480" loading="lazy" decoding="async">
+        <p class="label">Founder</p>
+        <h2>MR ROBOT</h2>
+        <p class="founder-tagline">Business IT, automation and custom software in Myanmar.</p>
+        <p class="founder-expansion">Myanmar Refining Operations &amp; Building Optimus Technica.</p>
+        <a class="text-link" href="https://optimustechnica.com/" target="_blank" rel="noopener noreferrer">Visit optimustechnica.com</a>
+      </div>
+    </section>
+
+    <section class="certs" id="certifications" data-stage>
+      <div class="section-head">
+        <h2>Certifications</h2>
+        <p class="section-note">LLM security, offensive security and computer science. Hover a title to see the certificate.</p>
+      </div>
+      <ol class="index" id="certList">
+        <li class="state">Loading certifications…</li>
+      </ol>
+    </section>
+
+    <section class="contact" id="contact" data-stage>
+      <h2 class="contact-title">Let’s discuss your next system.</h2>
+      <p class="contact-lede">Open to full stack engineering, agentic AI and security engagements.</p>
+      <a class="contact-email" href="mailto:clay.net@proton.me">clay.net@proton.me</a>
+      <ul class="contact-links">
+        <li><a href="https://www.linkedin.com/in/akkhant/" target="_blank" rel="noopener noreferrer">LinkedIn</a></li>
+        <li><a href="https://github.com/Iamnot0" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+        <li><a href="https://www.facebook.com/aungkaungkhant.dev/" target="_blank" rel="noopener noreferrer">Facebook</a></li>
+        <li><a href="https://medium.com/@mrrobot.computerservice" target="_blank" rel="noopener noreferrer">Medium</a></li>
+        <li><button type="button" class="text-link" id="cvButton" hidden>Download CV</button></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© 2026 Aung Kaung Khant</p>
+    <p>Prototype build. Copy is a draft.</p>
+  </footer>
+
+  <img class="peek" id="peek" alt="" aria-hidden="true">
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

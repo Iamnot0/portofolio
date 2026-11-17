@@ -1,0 +1,6 @@
+.git
+.remember
+.env*
+node_modules
+development
+*.md
