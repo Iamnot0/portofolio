@@ -24,22 +24,22 @@
 </head>
 <body>
   <canvas id="scene" aria-hidden="true"></canvas>
-  <a class="skip" href="#experience">Skip to content</a>
+  <a class="skip" href="/experience" data-route>Skip to content</a>
 
   <header class="nav">
-    <a class="brand" href="#top">Clay</a>
+    <a class="brand" href="/" data-route>Clay</a>
     <nav aria-label="Sections">
-      <a href="#experience">Experience</a>
-      <a href="#work">Work</a>
-      <a href="#founder">Founder</a>
-      <a href="#certifications">Certifications</a>
-      <a href="#contact">Contact</a>
+      <a href="/experience" data-route>Experience</a>
+      <a href="/work" data-route>Work</a>
+      <a href="/founder" data-route>Founder</a>
+      <a href="/certifications" data-route>Certifications</a>
+      <a href="/contact" data-route>Contact</a>
     </nav>
     <button class="theme-toggle" type="button" id="themeToggle" aria-pressed="false">Dark</button>
   </header>
 
   <main>
-    <section class="hero" id="top" data-stage>
+    <section class="hero" id="top" tabindex="-1" data-stage>
       <div class="hero-copy">
         <p class="hero-lede">Full stack engineer. I build enterprise systems and the agentic AI workflows that run inside them.</p>
         <div class="hero-byline">
@@ -50,7 +50,7 @@
       <h1 class="hero-title" aria-label="Clay">Clay</h1>
     </section>
 
-    <section class="experience" id="experience">
+    <section class="experience" id="experience" tabindex="-1">
       <div class="section-head">
         <h2>Experience</h2>
       </div>
@@ -98,7 +98,7 @@
       </div>
     </section>
 
-    <section class="work" id="work" data-stage>
+    <section class="work" id="work" tabindex="-1" data-stage>
       <div class="section-head">
         <h2>Selected work</h2>
       </div>
@@ -109,7 +109,7 @@
       </div>
     </section>
 
-    <section class="founder" id="founder" data-stage>
+    <section class="founder" id="founder" tabindex="-1" data-stage>
       <img class="founder-photo" src="/founder.jpg" alt="Aung Kaung Khant in front of a red-brick colonial building in Yangon" width="800" height="600" loading="lazy" decoding="async">
       <div class="founder-copy">
         <img class="founder-badge" src="/mr-robot-badge.png" alt="MR ROBOT badge: Refining Operations, Building Optimus Technica" width="480" height="480" loading="lazy" decoding="async">
@@ -121,7 +121,7 @@
       </div>
     </section>
 
-    <section class="certs" id="certifications" data-stage>
+    <section class="certs" id="certifications" tabindex="-1" data-stage>
       <div class="section-head">
         <h2>Certifications</h2>
         <p class="section-note">LLM security, offensive security and computer science. Hover a title to see the certificate.</p>
@@ -131,7 +131,7 @@
       </ol>
     </section>
 
-    <section class="contact" id="contact" data-stage>
+    <section class="contact" id="contact" tabindex="-1" data-stage>
       <h2 class="contact-title">Let’s discuss your next system.</h2>
       <p class="contact-lede">Open to full stack engineering, agentic AI and security engagements.</p>
       <a class="contact-email" href="mailto:clay.net@proton.me">clay.net@proton.me</a>

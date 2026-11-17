@@ -4,14 +4,17 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { createScene } from './scene.js';
 import { setupFlythrough } from './flythrough.js';
 import { loadContent } from './content.js';
+import { setupSectionRoutes } from './routes.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-const lenis = reduceMotion ? null : new Lenis({ lerp: 0.09, anchors: true });
+history.scrollRestoration = 'manual';
+const lenis = reduceMotion ? null : new Lenis({ lerp: 0.09 });
 lenis?.on('scroll', ScrollTrigger.update);
+const routes = setupSectionRoutes({ lenis, ScrollTrigger });
 
 let scene = null;
 let flythrough = null;
@@ -131,4 +134,5 @@ loadContent().then(() => {
   }
   ScrollTrigger.sort();
   ScrollTrigger.refresh();
+  routes.landOnCurrentPath();
 });
