@@ -1,7 +1,7 @@
 {
   "name": "portfolio-development",
   "version": "1.0.0",
-  "description": "Operational scripts for the portfolio: migrations, content move, admin credentials",
+  "description": "Operational scripts for the portfolio: migrations and admin credentials",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,14 +12,10 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1",
-    "@vercel/blob": "^2.9.0",
     "otpauth": "^9.6.0",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16"
-  },
-  "overrides": {
-    "zod": "^4.6.7"
   }
 }

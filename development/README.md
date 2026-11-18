@@ -38,7 +38,7 @@ Secrets live in Vercel environment variables (mark them sensitive) and never in 
 
 ## Scripts
 
-Scripts in `development/scripts/` run from the repository root after `npm install --prefix development`. Pull the environment first with `vercel env pull` so `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN` are available (`set -a; . ./.env.local; set +a`).
+Scripts in `development/scripts/` run from the repository root after `npm install --prefix development`. Pull the environment first with `vercel env pull` so `DATABASE_URL` is available (`set -a; . ./.env.local; set +a`).
 
 ### `migrate.js`
 
@@ -47,22 +47,6 @@ Applies each `backend/db/migrations/*.sql` file not yet recorded in `schema_migr
 ```bash
 node development/scripts/migrate.js
 ```
-
-### `migrate-content.js`
-
-One-time move of the old `projects`, `certificates` and `cv_files` tables into `portfolio_projects`, `portfolio_certificates` and `portfolio_cv`, with images and the newest CV uploaded to Vercel Blob. Seeds the four featured projects and three local certificates from `scripts/seed-content.js`, deletes the seven retired projects from the old table, and keeps every other old row.
-
-```bash
-node development/scripts/migrate-content.js --dry-run
-node development/scripts/migrate-content.js --apply
-node development/scripts/migrate-content.js --apply --drop-old
-```
-
-- `--dry-run` prints the plan (rows, uploads, retired rows) and changes nothing.
-- `--apply` uploads to Blob, then writes all rows and deletes the retired projects in one transaction. It exits with an error if any `portfolio_*` content table already has rows.
-- `--drop-old` also drops `projects`, `certificates` and `cv_files`. This cannot be undone, so run it only after checking the result.
-
-Run `migrate.js` first. Uploaded files are not removed if a later database write fails.
 
 ### `admin-credentials.js`
 
