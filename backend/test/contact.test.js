@@ -46,7 +46,7 @@ describe('contact form', () => {
       assert.equal(message.from, 'contact@aungkaungkhant.work');
       assert.equal(message.replyTo, 'ada@example.com');
       assert.match(message.subject, /Ada Lovelace/);
-      assert.match(message.html, /https:\/\/www\.aungkaungkhant\.work\/email\/clay-wordmark\.png/);
+      assert.match(message.html, /https:\/\/aungkaungkhant\.work\/email\/clay-wordmark\.png/);
       assert.match(message.text, /I would like to talk about a project\./);
 
       const rows = await stored();

@@ -5,7 +5,7 @@ import { HttpError, asyncRoute, clientIp } from '../http.js';
 import { parseBody } from '../content/schemas.js';
 import { isHumanPaced, issueStartToken } from './start-token.js';
 
-const LOGO_URL = 'https://www.aungkaungkhant.work/email/clay-wordmark.png';
+const LOGO_URL = 'https://aungkaungkhant.work/email/clay-wordmark.png';
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_PER_WINDOW = 3;
 

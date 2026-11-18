@@ -10,7 +10,7 @@ const COLORS = {
 };
 const SERIF = "Fraunces, Georgia, 'Times New Roman', serif";
 const SANS = "'Schibsted Grotesk', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
-const SITE = 'https://www.aungkaungkhant.work';
+const SITE = 'https://aungkaungkhant.work';
 
 function escapeHtml(value) {
   return String(value)

@@ -98,7 +98,7 @@ enterprise systems and agentic AI workflows.
 - Sends the approved template (`backend/src/email/contact-notification.js`) from
   `contact@aungkaungkhant.work` to clay.net@proton.me with `reply_to` = visitor.
 - `RESEND_API_KEY`: a new sending-only key restricted to aungkaungkhant.work.
-- Wordmark served from `https://www.aungkaungkhant.work/email/clay-wordmark.png`.
+- Wordmark served from `https://aungkaungkhant.work/email/clay-wordmark.png`.
 
 ### Frontend (`frontend/`, Vite MPA: `index.html`, `admin.html`)
 

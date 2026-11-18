@@ -161,7 +161,7 @@ Schema `001_portfolio.sql` (new tables alongside the old ones; Task 7 migrates a
 **Interfaces:**
 - Consumes: `renderContactNotification(submission, logoSrc)` (exists); `mailer = { send({ from, to, replyTo, subject, html, text }): Promise<{ id }> }`.
 - Produces: `POST /api/contact { name, email, company?, message, website, startedAt }` → `202 { ok: true }`. `website` is the honeypot (non-empty → 202, nothing sent); `startedAt` older than now − 3 s required (faster → 202, nothing sent); limits name 120, email 254 (valid), company 120, message 10–5000.
-- Logo URL: `https://www.aungkaungkhant.work/email/clay-wordmark.png`.
+- Logo URL: `https://aungkaungkhant.work/email/clay-wordmark.png`.
 
 - [ ] **Step 1: Failing tests:** valid → 202 and `mailer.send` called with `replyTo` = visitor email, `to` = `CONTACT_TO`; message `<script>alert(1)</script>` → html contains `&lt;script&gt;` and no `<script>`; honeypot filled → 202, mailer not called; 4th submission from one IP within an hour → 429 `{ error: 'Too many messages. Try again later.' }`; mailer throws → 502 `{ error: 'Message could not be sent. Email clay.net@proton.me directly.' }` and the submission is still stored.
 - [ ] **Step 2–4:** FAIL → implement (`fetch` to `https://api.resend.com/emails`) → PASS.
