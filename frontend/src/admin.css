@@ -300,8 +300,7 @@
 }
 
 .admin-title {
-  font-family: var(--display);
-  font-variation-settings: 'SOFT' 100;
+  font-family: var(--heading);
   font-size: 1.35rem;
   letter-spacing: -0.015em;
   line-height: 1.15;

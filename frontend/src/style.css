@@ -8,6 +8,7 @@
   --nav-bg: rgb(236 230 220 / 0.72);
   --lift: 0 32px 60px -32px rgb(28 24 20 / 0.45);
   --display: 'Fraunces', Georgia, serif;
+  --heading: 'Newsreader', Georgia, serif;
   --text: 'Schibsted Grotesk', system-ui, sans-serif;
   --gutter: clamp(16px, 4vw, 56px);
   --fly-w: min(980px, 84vw);
@@ -67,10 +68,9 @@ h1,
 h2,
 h3 {
   margin: 0;
-  font-family: var(--display);
-  font-variation-settings: 'SOFT' 100;
-  font-weight: 380;
-  letter-spacing: -0.03em;
+  font-family: var(--heading);
+  font-weight: 400;
+  letter-spacing: -0.02em;
   line-height: 0.95;
 }
 
@@ -259,6 +259,8 @@ a.card-inner:focus-visible .card-cta {
 }
 
 .hero-title {
+  font-family: var(--display);
+  font-variation-settings: 'SOFT' 100;
   font-size: clamp(7rem, 27vw, 24rem);
   font-weight: 340;
   line-height: 0.82;
@@ -329,8 +331,7 @@ section:not(.hero) {
 .role h3,
 .education-degree {
   font-size: clamp(1.6rem, 2.6vw, 2.2rem);
-  font-family: var(--display);
-  font-variation-settings: 'SOFT' 100;
+  font-family: var(--heading);
   letter-spacing: -0.02em;
   line-height: 1.05;
 }
@@ -450,7 +451,7 @@ section:not(.hero) {
   place-items: center;
   padding: 24px;
   color: var(--muted);
-  font-family: var(--display);
+  font-family: var(--heading);
   font-size: 1.25rem;
   text-align: center;
 }
@@ -583,8 +584,7 @@ a.card-inner .card-cta {
 
 .row-title {
   overflow-wrap: anywhere;
-  font-family: var(--display);
-  font-variation-settings: 'SOFT' 100;
+  font-family: var(--heading);
   font-size: clamp(1.15rem, 1.8vw, 1.5rem);
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -659,8 +659,7 @@ a.card-inner .card-cta {
 }
 
 .contact-email {
-  font-family: var(--display);
-  font-variation-settings: 'SOFT' 100;
+  font-family: var(--heading);
   font-size: clamp(1.5rem, 3.4vw, 2.75rem);
   color: var(--accent);
   text-decoration: none;
@@ -750,8 +749,7 @@ a.card-inner .card-cta {
 }
 
 .form-thanks {
-  font-family: var(--display);
-  font-variation-settings: 'SOFT' 100;
+  font-family: var(--heading);
   font-size: clamp(1.4rem, 2.6vw, 2rem);
   line-height: 1.2;
 }
@@ -798,7 +796,7 @@ a.card-inner .card-cta {
 .footer-motto {
   justify-self: end;
   color: var(--ink);
-  font-family: var(--display);
+  font-family: var(--heading);
   font-size: 1rem;
 }
 
