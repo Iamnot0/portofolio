@@ -8,7 +8,7 @@
       "rewrites": [
         {
           "source": "/(experience|work|founder|certifications|contact)",
-          "destination": "/index.html"
+          "destination": "/"
         }
       ]
     },
