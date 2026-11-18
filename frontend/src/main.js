@@ -94,14 +94,17 @@ toggle.addEventListener('click', () => {
   applyTheme(next);
 });
 
-// Content rises out of depth as it scrolls in, and tips back as it leaves.
-function riseInDepth(targets, trigger) {
-  gsap.fromTo(targets,
-    { rotateX: 28, z: -220, y: 60, opacity: 0, transformPerspective: 1100, transformOrigin: '50% 100%' },
-    {
-      rotateX: 0, z: 0, y: 0, opacity: 1, ease: 'none', stagger: 0.08,
-      scrollTrigger: { trigger, start: 'top 92%', end: 'top 50%', scrub: 0.8 },
-    });
+// Content rises into place as it scrolls in. Text rises flat: under a perspective tilt the
+// browser rasterises glyphs unevenly, so only images get the depth.
+function rise(targets, trigger, { depth = false } = {}) {
+  const from = depth
+    ? { rotateX: 28, z: -220, y: 60, opacity: 0, transformPerspective: 1100, transformOrigin: '50% 100%' }
+    : { y: 60, opacity: 0 };
+  const to = depth ? { rotateX: 0, z: 0, y: 0, opacity: 1 } : { y: 0, opacity: 1 };
+  gsap.fromTo(targets, from, {
+    ...to, ease: 'none', stagger: 0.08,
+    scrollTrigger: { trigger, start: 'top 92%', end: 'top 50%', scrub: 0.8 },
+  });
 }
 
 if (!reduceMotion) {
@@ -121,10 +124,10 @@ if (!reduceMotion) {
     scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 0.6 },
   });
 
-  for (const head of document.querySelectorAll('.section-head')) riseInDepth(head, head);
-  riseInDepth('.founder-photo', '.founder');
-  riseInDepth('.founder-copy > *', '.founder-copy');
-  riseInDepth('.contact > *', '.contact');
+  for (const head of document.querySelectorAll('.section-head')) rise(head, head);
+  rise('.founder-photo', '.founder', { depth: true });
+  rise('.founder-copy > *', '.founder-copy');
+  rise('.contact > *', '.contact');
 }
 
 setupContactForm(document.getElementById('contactForm'));
@@ -137,8 +140,8 @@ loadContent().then(() => {
     reduceMotion,
   });
   if (!reduceMotion) {
-    for (const row of document.querySelectorAll('#certList > li')) riseInDepth(row, row);
-    if (!flythrough) for (const card of document.querySelectorAll('#workList > .card')) riseInDepth(card, card);
+    for (const row of document.querySelectorAll('#certList > li')) rise(row, row);
+    if (!flythrough) for (const card of document.querySelectorAll('#workList > .card')) rise(card, card);
   }
   ScrollTrigger.sort();
   ScrollTrigger.refresh();
