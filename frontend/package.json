@@ -5,8 +5,7 @@
   "scripts": {
     "dev": "vite --port 5174 --strictPort",
     "build": "vite build",
-    "preview": "vite preview --port 5174 --strictPort",
-    "test": "node --test \"test/**/*.test.js\""
+    "preview": "vite preview --port 5174 --strictPort"
   },
   "dependencies": {
     "@vercel/blob": "^2.9.0",

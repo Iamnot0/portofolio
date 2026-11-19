@@ -8,6 +8,5 @@ dist/
 .playwright-mcp/
 .vite/
 
-# Local only, never published: development tooling and docs, backend tests.
+# Local only, never published: development tooling, docs and all tests.
 development/
-backend/test/

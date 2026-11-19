@@ -14,13 +14,7 @@
     "node": "24.x"
   },
   "type": "module",
-  "scripts": {
-    "test": "node --test \"test/**/*.test.js\""
-  },
   "main": "src/index.js",
-  "devDependencies": {
-    "@electric-sql/pglite": "^0.5.16"
-  },
   "private": "true",
   "overrides": {
     "zod": "$zod"
