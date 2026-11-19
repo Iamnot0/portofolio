@@ -7,3 +7,7 @@ dist/
 .DS_Store
 .playwright-mcp/
 .vite/
+
+# Local only, never published: development tooling and docs, backend tests.
+development/
+backend/test/
