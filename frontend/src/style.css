@@ -16,6 +16,14 @@
   color-scheme: light;
 }
 
+/* Theme switch: the new theme is revealed as a circle from the toggle (theme-reveal.js), so the
+   browser's default cross-fade between the two snapshots is turned off. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 :root[data-theme='dark'] {
   --bg: #13110f;
   --surface: #1d1a17;

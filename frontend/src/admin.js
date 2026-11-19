@@ -1,4 +1,5 @@
 import { upload } from '@vercel/blob/client';
+import { revealTheme } from './theme-reveal.js';
 import { ApiError, apiGet, apiSend } from './api.js';
 import { checkCv, checkImage, uploadPathname } from './admin-upload.js';
 import { createDraftStore, reconcileDraft, saveDraft } from './admin-draft.js';
@@ -46,10 +47,10 @@ function applyTheme(theme) {
   themeToggle.setAttribute('aria-label', `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`);
 }
 applyTheme(document.documentElement.dataset.theme);
-themeToggle.addEventListener('click', () => {
+themeToggle.addEventListener('click', (event) => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   try { localStorage.setItem('theme', next); } catch { /* storage unavailable: theme still switches */ }
-  applyTheme(next);
+  revealTheme(event.currentTarget, () => applyTheme(next));
 });
 
 /* Session */

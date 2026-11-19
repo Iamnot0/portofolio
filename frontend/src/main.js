@@ -5,6 +5,7 @@ import { setupFlythrough } from './flythrough.js';
 import { loadContent } from './content.js';
 import { setupContactForm } from './contact-form.js';
 import { setupSectionRoutes } from './routes.js';
+import { revealTheme } from './theme-reveal.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -88,10 +89,10 @@ function applyTheme(theme) {
   scene?.setTheme(theme);
 }
 applyTheme(document.documentElement.dataset.theme);
-toggle.addEventListener('click', () => {
+toggle.addEventListener('click', (event) => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   try { localStorage.setItem('theme', next); } catch { /* storage unavailable: theme still switches */ }
-  applyTheme(next);
+  revealTheme(event.currentTarget, () => applyTheme(next));
 });
 
 // Content rises into place as it scrolls in. Text rises flat: under a perspective tilt the
