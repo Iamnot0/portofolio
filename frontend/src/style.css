@@ -519,6 +519,7 @@ a.card-inner .card-cta {
 
 .founder-photo {
   width: 100%;
+  height: auto;
   aspect-ratio: 4 / 5;
   object-fit: cover;
   object-position: 48% 40%;
