@@ -8,6 +8,10 @@
 </p>
 
 <p align="center">
+  <img src=".github/assets/clay-avatar.png" alt="Aung Kaung Khant (Clay)" width="140">
+</p>
+
+<p align="center">
   Portfolio of <strong>Aung Kaung Khant (Clay)</strong>, Founder and CEO of Optimus Technica (MRROBOT).<br>
   <a href="https://aungkaungkhant.work">aungkaungkhant.work</a>
 </p>
